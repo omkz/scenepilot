@@ -24,7 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} bg-background`}>
       <body className="antialiased font-sans">
-        <TooltipProvider delayDuration={300}>
+        <TooltipProvider>
           {children}
         </TooltipProvider>
       </body>

@@ -170,15 +170,13 @@ export function ProjectSidebar({ activeSection, onNavigate, collapsed, onToggleC
           </button>
 
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-accent transition-colors group">
-                <div className={cn('w-7 h-7 rounded shrink-0 bg-gradient-to-br', ACTIVE_PROJECT.coverColor)} />
-                <div className="flex-1 text-left min-w-0">
-                  <div className="text-xs font-medium text-foreground truncate">{ACTIVE_PROJECT.name}</div>
-                  <div className="text-[10px] text-muted-foreground">Season {ACTIVE_PROJECT.currentSeason} · Active</div>
-                </div>
-                <ChevronsUpDown size={12} className="text-muted-foreground shrink-0" />
-              </button>
+            <DropdownMenuTrigger className="w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-accent transition-colors group text-left outline-none">
+              <div className={cn('w-7 h-7 rounded shrink-0 bg-gradient-to-br', ACTIVE_PROJECT.coverColor)} />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-foreground truncate">{ACTIVE_PROJECT.name}</div>
+                <div className="text-[10px] text-muted-foreground">Season {ACTIVE_PROJECT.currentSeason} · Active</div>
+              </div>
+              <ChevronsUpDown size={12} className="text-muted-foreground shrink-0" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48 bg-popover border-border">
               {PROJECTS.map(p => (
