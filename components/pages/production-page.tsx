@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { FEATURES } from '@/lib/features'
-import type { SidebarSection } from '@/lib/navigation'
 import {
   CHARACTERS,
   COSTUMES,
@@ -466,11 +465,10 @@ type ProductionView = 'storyboards' | 'generated-scenes' | 'video' | 'voice' | '
 
 interface ProductionPageProps {
   view: ProductionView
-  onNavigate?: (section: SidebarSection) => void
 }
 
-export function ProductionPage({ view, onNavigate }: ProductionPageProps) {
-  const activeView = view
+export function ProductionPage({ view }: ProductionPageProps) {
+  const [activeView, setActiveView] = useState<ProductionView>(view)
   const activeJobs = GENERATION_JOBS.filter(j => j.status === 'running')
   const tabs: { id: ProductionView; label: string; icon: React.ReactNode }[] = [
     { id: 'storyboards', label: 'Storyboards', icon: <Film size={12} /> },
@@ -508,7 +506,7 @@ export function ProductionPage({ view, onNavigate }: ProductionPageProps) {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => onNavigate?.(tab.id)}
+            onClick={() => setActiveView(tab.id)}
             className={cn(
               'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px',
               activeView === tab.id

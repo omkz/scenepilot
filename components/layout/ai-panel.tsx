@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { AI_SUGGESTIONS } from '@/lib/mock-data'
-import { SidebarSection } from './project-sidebar'
+import type { SidebarSection } from '@/lib/navigation'
 import { Sparkles, X, ChevronRight, Cpu, Lightbulb } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,7 @@ interface AIPanelProps {
   open: boolean
   onClose: () => void
   onNavigate: (section: SidebarSection) => void
+  projectName: string
 }
 
 const SECTION_MAP: Record<string, SidebarSection> = {
@@ -19,7 +20,7 @@ const SECTION_MAP: Record<string, SidebarSection> = {
   production: 'storyboards',
 }
 
-export function AIPanel({ open, onClose, onNavigate }: AIPanelProps) {
+export function AIPanel({ open, onClose, onNavigate, projectName }: AIPanelProps) {
   return (
     <div className={cn(
       'w-72 flex flex-col h-full bg-card border-l border-border shrink-0 transition-all duration-200',
@@ -47,7 +48,7 @@ export function AIPanel({ open, onClose, onNavigate }: AIPanelProps) {
       {/* Context summary */}
       <div className="px-4 py-3 border-b border-border bg-muted/30">
         <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Current Context</div>
-        <div className="text-xs text-foreground font-medium">Crimson Signal</div>
+        <div className="text-xs text-foreground font-medium">{projectName}</div>
         <div className="text-[11px] text-muted-foreground mt-0.5">6 episodes planned · 2 in production</div>
       </div>
 

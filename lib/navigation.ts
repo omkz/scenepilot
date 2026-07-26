@@ -3,91 +3,47 @@ import { FEATURES, type FeatureKey } from '@/lib/features'
 export type SidebarSection =
   | 'overview'
   | 'story-studio'
-  | 'assets'
-  | 'story-bible'
-  | 'season-plan'
   | 'all-episodes'
-  | 'drafts'
-  | 'in-production'
-  | 'published'
   | 'storyboards'
-  | 'generated-scenes'
-  | 'video'
-  | 'voice'
-  | 'editor'
-  | 'final-episodes'
-  | 'social-versions'
-  | 'subtitles'
-  | 'export-history'
   | 'project-settings'
+  | 'final-episodes'
+
+export type WorkspaceRoute = 'overview' | 'story-studio' | 'episodes' | 'production' | 'settings'
 
 export interface NavigationItem {
   id: SidebarSection
   label: string
-  icon: 'overview' | 'story' | 'episodes' | 'production' | 'storyboard' | 'scenes' | 'settings' | 'export'
-}
-
-export interface NavigationGroup {
-  id: string
-  label: string
-  icon: NavigationItem['icon']
-  destination?: SidebarSection
-  children?: NavigationItem[]
+  route: WorkspaceRoute
+  icon: 'overview' | 'story' | 'episodes' | 'production' | 'settings' | 'export'
   feature?: FeatureKey
 }
 
-const NAVIGATION_CONFIG: NavigationGroup[] = [
-  { id: 'overview', label: 'Overview', icon: 'overview', destination: 'overview' },
-  { id: 'story-studio', label: 'Story Studio', icon: 'story', destination: 'story-studio' },
-  { id: 'episodes', label: 'Episodes', icon: 'episodes', destination: 'all-episodes' },
-  {
-    id: 'production',
-    label: 'Production',
-    icon: 'production',
-    children: [
-      { id: 'storyboards', label: 'Storyboards', icon: 'storyboard' },
-      { id: 'generated-scenes', label: 'Generated Scenes', icon: 'scenes' },
-    ],
-  },
-  {
-    id: 'export',
-    label: 'Export',
-    icon: 'export',
-    destination: 'final-episodes',
-    feature: 'export',
-  },
-  { id: 'project-settings', label: 'Project Settings', icon: 'settings', destination: 'project-settings' },
+const NAVIGATION_CONFIG: NavigationItem[] = [
+  { id: 'overview', label: 'Overview', route: 'overview', icon: 'overview' },
+  { id: 'story-studio', label: 'Story Studio', route: 'story-studio', icon: 'story' },
+  { id: 'all-episodes', label: 'Episodes', route: 'episodes', icon: 'episodes' },
+  { id: 'storyboards', label: 'Production', route: 'production', icon: 'production' },
+  { id: 'final-episodes', label: 'Export', route: 'overview', icon: 'export', feature: 'export' },
+  { id: 'project-settings', label: 'Project Settings', route: 'settings', icon: 'settings' },
 ]
 
-export const NAVIGATION = NAVIGATION_CONFIG.filter(group => !group.feature || FEATURES[group.feature])
+export const NAVIGATION = NAVIGATION_CONFIG.filter(item => !item.feature || FEATURES[item.feature])
 
-export const SECTION_TO_GROUP: Record<SidebarSection, string> = {
-  overview: 'overview',
-  'story-studio': 'story-studio',
-  assets: 'story-studio',
-  'story-bible': 'story-studio',
-  'season-plan': 'story-studio',
-  'all-episodes': 'episodes',
-  drafts: 'episodes',
-  'in-production': 'episodes',
-  published: 'episodes',
-  storyboards: 'production',
-  'generated-scenes': 'production',
-  video: 'production',
-  voice: 'production',
-  editor: 'production',
-  'final-episodes': 'export',
-  'social-versions': 'export',
-  subtitles: 'export',
-  'export-history': 'export',
-  'project-settings': 'project-settings',
+export const SECTION_META: Record<WorkspaceRoute, { label: string }> = {
+  overview: { label: 'Overview' },
+  'story-studio': { label: 'Story Studio' },
+  episodes: { label: 'Episodes' },
+  production: { label: 'Production' },
+  settings: { label: 'Project Settings' },
 }
 
-export const SECTION_META: Partial<Record<SidebarSection, { breadcrumbs: string[]; action: string }>> = {
-  overview: { breadcrumbs: ['Crimson Signal', 'Overview'], action: 'Create Episode' },
-  'story-studio': { breadcrumbs: ['Crimson Signal', 'Story Studio'], action: 'Add Character' },
-  'all-episodes': { breadcrumbs: ['Crimson Signal', 'Episodes', 'All Episodes'], action: 'Create Episode' },
-  storyboards: { breadcrumbs: ['Crimson Signal', 'Production', 'Storyboards'], action: 'Generate Storyboard' },
-  'generated-scenes': { breadcrumbs: ['Crimson Signal', 'Production', 'Generated Scenes'], action: 'Generate Scene' },
-  'project-settings': { breadcrumbs: ['Crimson Signal', 'Project Settings'], action: 'Save Settings' },
+export function getWorkspaceRoute(pathname: string): WorkspaceRoute {
+  const segment = pathname.split('/').filter(Boolean).at(-1)
+  if (segment && segment in SECTION_META) return segment as WorkspaceRoute
+  return 'overview'
+}
+
+export function sectionHref(projectId: string, section: SidebarSection) {
+  const item = NAVIGATION_CONFIG.find(candidate => candidate.id === section)
+  return `/projects/${projectId}/${item?.route || 'overview'}`
 }

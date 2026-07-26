@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   ACTIVE_PROJECT,
@@ -10,6 +11,8 @@ import {
   CONTINUITY_ISSUES,
 } from '@/lib/mock-data'
 import type { SidebarSection } from '@/lib/navigation'
+import { sectionHref } from '@/lib/navigation'
+import type { ProjectDto } from '@/lib/projects/types'
 import {
   BookOpen,
   Tv2,
@@ -55,7 +58,7 @@ const STAGE_ICONS: Record<string, typeof Film> = {
 }
 
 interface OverviewPageProps {
-  onNavigate: (section: SidebarSection) => void
+  project: ProjectDto
 }
 
 function getNextAction(): { title: string; detail: string; action: string; section: SidebarSection } {
@@ -103,7 +106,9 @@ function getNextAction(): { title: string; detail: string; action: string; secti
   }
 }
 
-export function OverviewPage({ onNavigate }: OverviewPageProps) {
+export function OverviewPage({ project }: OverviewPageProps) {
+  const router = useRouter()
+  const onNavigate = (section: SidebarSection) => router.push(sectionHref(project.id, section))
   const activeEpisodes = EPISODES.slice(0, 3)
   const approvedCharacters = CHARACTERS.filter(item => item.approvalStatus === 'approved').length
   const approvedCostumes = COSTUMES.filter(item => item.approvalStatus === 'approved').length
@@ -112,12 +117,19 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
   const continuityCount = CONTINUITY_ISSUES.length
   const nextAction = getNextAction()
 
+  // Temporary mock workflow metrics remain until story assets and episodes are persisted.
+  const mockWorkflowMetrics = {
+    storyProgress: ACTIVE_PROJECT.storyProgress,
+    episodeProgress: ACTIVE_PROJECT.episodeProgress,
+    productionProgress: ACTIVE_PROJECT.productionProgress,
+  }
+
   const workflowStages = [
     {
       id: 'story-studio' as SidebarSection,
       label: 'Story Studio',
       icon: <BookOpen size={15} />,
-      progress: ACTIVE_PROJECT.storyProgress,
+      progress: mockWorkflowMetrics.storyProgress,
       summary: `${approvedCharacters + approvedCostumes + approvedLocations} approved reusable assets`,
       color: 'text-blue-400',
     },
@@ -125,7 +137,7 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
       id: 'all-episodes' as SidebarSection,
       label: 'Episodes',
       icon: <Tv2 size={15} />,
-      progress: ACTIVE_PROJECT.episodeProgress,
+      progress: mockWorkflowMetrics.episodeProgress,
       summary: `${EPISODES.length} episodes planned`,
       color: 'text-amber-400',
     },
@@ -133,7 +145,7 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
       id: 'storyboards' as SidebarSection,
       label: 'Production',
       icon: <Clapperboard size={15} />,
-      progress: ACTIVE_PROJECT.productionProgress,
+      progress: mockWorkflowMetrics.productionProgress,
       summary: `${inProduction} episodes in production`,
       color: 'text-emerald-400',
     },
@@ -152,17 +164,21 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-6xl mx-auto p-6 space-y-5">
         <div className="flex items-start gap-4">
-          <div className={cn('w-16 h-20 rounded-lg shrink-0 bg-gradient-to-br', ACTIVE_PROJECT.coverColor, 'flex items-end p-2')}>
+          <div className="w-16 h-20 rounded-lg shrink-0 bg-gradient-to-br from-red-900 to-amber-800 flex items-end p-2">
             <Film size={16} className="text-white/60" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-xl font-bold text-foreground">{ACTIVE_PROJECT.name}</h1>
-              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-green-400/10 text-green-400 border-green-400/20">Active</Badge>
+              <h1 className="text-xl font-bold text-foreground">{project.name}</h1>
+              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-green-400/10 text-green-400 border-green-400/20">{project.status}</Badge>
             </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Create serialized short-drama episodes with consistent characters, costumes, locations, and story continuity.
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-3">
+              <span>{project.genre}</span><span>·</span>
+              <span>{project.orientation}</span><span>·</span>
+              <span>Season {project.currentSeason}</span><span>·</span>
+              <span>{project.episodeCount} target episodes</span><span>·</span>
+              <span>Updated {new Date(project.updatedAt).toLocaleDateString()}</span>
+            </div>
             <div className="flex items-center gap-2">
               <Button size="sm" className="h-7 text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold" onClick={() => onNavigate('all-episodes')}>
                 <Plus size={11} className="mr-1" /> Create Episode
@@ -174,8 +190,8 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
           </div>
           <div className="hidden lg:flex items-center gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-foreground">{EPISODES.length}</div>
-              <div className="text-[10px] text-muted-foreground">Planned</div>
+              <div className="text-2xl font-bold text-foreground">{project.episodeCount}</div>
+              <div className="text-[10px] text-muted-foreground">Target Episodes</div>
             </div>
             <div className="w-px h-8 bg-border" />
             <div>

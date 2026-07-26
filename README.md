@@ -1,33 +1,35 @@
-# scenepilot
+# ScenePilot
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+ScenePilot is a Next.js workspace for planning serialized short dramas with consistent story assets and continuity. Project records are stored in PostgreSQL through Drizzle ORM.
 
-## Built with v0
+## Local setup
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
-
-[Continue working on v0 →](https://v0.app/chat/projects/prj_CtlWkle1jT0NJ2WfpNkY5n6e5wWx)
-
-## Getting Started
-
-First, run the development server:
+PostgreSQL 16 and pnpm are required.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+cp .env.example .env
+docker compose up -d
+pnpm install
+pnpm db:generate
+pnpm db:migrate
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000/projects](http://localhost:3000/projects).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The default Docker database URL is:
 
-## Learn More
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scenepilot
+```
 
-To learn more, take a look at the following resources:
+## Commands
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+- `pnpm dev` — run the development server.
+- `pnpm lint` — run ESLint.
+- `pnpm build` — create a production build.
+- `pnpm db:generate` — generate SQL migrations from `lib/db/schema.ts`.
+- `pnpm db:migrate` — apply pending migrations.
+- `pnpm db:studio` — open Drizzle Studio.
+
+Database access is server-only. Project mutations use Server Actions and validation from Zod; story assets and episode data remain mocked for the current milestone.
