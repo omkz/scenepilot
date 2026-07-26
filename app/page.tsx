@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { ProjectSidebar, type SidebarSection } from '@/components/layout/project-sidebar'
+import { ProjectSidebar } from '@/components/layout/project-sidebar'
+import { FEATURES } from '@/lib/features'
+import type { SidebarSection } from '@/lib/navigation'
 import { TopNav } from '@/components/layout/top-nav'
 import { AIPanel } from '@/components/layout/ai-panel'
 import { QueuePanel } from '@/components/layout/queue-panel'
@@ -22,31 +24,27 @@ function PageContent({
   onNavigate: (s: SidebarSection) => void
 }) {
   if (section === 'overview') return <OverviewPage onNavigate={onNavigate} />
+  if (section === 'story-studio') return <AssetsPage />
+  if (section === 'all-episodes') return <EpisodesPage />
+  if (section === 'storyboards' || section === 'generated-scenes') {
+    return <ProductionPage view={section} onNavigate={onNavigate} />
+  }
   if (section === 'assets') return <AssetsPage />
   if (section === 'story-bible') return <StoryBiblePage />
-  if (section === 'season-plan') return <SeasonPlanPage />
+  if (section === 'season-plan' && FEATURES.advancedSeasonPlanning) return <SeasonPlanPage />
   if (
-    section === 'all-episodes' ||
-    section === 'drafts' ||
-    section === 'in-production' ||
-    section === 'published'
+    (section === 'voice' && FEATURES.voiceGeneration) ||
+    (section === 'editor' && FEATURES.videoEditor) ||
+    (section === 'video' && FEATURES.advancedVideo)
   ) {
-    return <EpisodesPage filter={section} />
+    return <ProductionPage view={section} onNavigate={onNavigate} />
   }
-  if (
-    section === 'storyboards' ||
-    section === 'video' ||
-    section === 'voice' ||
-    section === 'editor'
-  ) {
-    return <ProductionPage view={section} />
-  }
-  if (
+  if (FEATURES.export && (
     section === 'final-episodes' ||
     section === 'social-versions' ||
     section === 'subtitles' ||
     section === 'export-history'
-  ) {
+  )) {
     return <ExportPage view={section} />
   }
   if (section === 'project-settings') return <SettingsPage />
@@ -95,7 +93,7 @@ export default function ScenePilot() {
         />
 
         {/* Queue panel dropdown */}
-        {queueOpen && (
+        {FEATURES.advancedGenerationQueue && queueOpen && (
           <QueuePanel open={queueOpen} onClose={() => setQueueOpen(false)} />
         )}
 

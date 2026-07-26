@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { FEATURES } from '@/lib/features'
 import { ACTIVE_PROJECT } from '@/lib/mock-data'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -116,7 +117,7 @@ export function SettingsPage() {
                 <Field label="Current Season" description="Season number for episode numbering.">
                   <TextInput value={String(ACTIVE_PROJECT.currentSeason)} />
                 </Field>
-                <Field label="Default Language" description="Script and subtitle generation language.">
+                <Field label="Default Language" description="Language used for story outlines and scripts.">
                   <Select value="English" options={['English', 'Spanish', 'French', 'Mandarin', 'Japanese']} />
                 </Field>
               </div>
@@ -153,15 +154,19 @@ export function SettingsPage() {
                 <Field label="Auto Generate Storyboard" description="Begin storyboard generation when script is approved.">
                   <Toggle enabled={false} />
                 </Field>
-                <Field label="Voice Auto-Match" description="Automatically match characters to voice profiles.">
-                  <Toggle enabled={true} />
-                </Field>
+                {FEATURES.voiceGeneration && (
+                  <Field label="Voice Auto-Match" description="Automatically match characters to voice profiles.">
+                    <Toggle enabled={true} />
+                  </Field>
+                )}
                 <Field label="Scene Generation Quality" description="Higher quality uses more credits per scene.">
                   <Select value="High" options={['Standard', 'High', 'Ultra']} />
                 </Field>
-                <Field label="Parallel Job Limit" description="Max simultaneous generation jobs.">
-                  <Select value="3 jobs" options={['1 job', '2 jobs', '3 jobs', '5 jobs', 'Unlimited']} />
-                </Field>
+                {FEATURES.advancedGenerationQueue && (
+                  <Field label="Parallel Job Limit" description="Max simultaneous generation jobs.">
+                    <Select value="3 jobs" options={['1 job', '2 jobs', '3 jobs', '5 jobs', 'Unlimited']} />
+                  </Field>
+                )}
               </div>
             </div>
           )}
@@ -197,7 +202,7 @@ export function SettingsPage() {
             <div>
               <h2 className="text-sm font-bold text-foreground mb-4">Notifications</h2>
               <div className="bg-card border border-border rounded-xl px-5">
-                <Field label="Generation Complete" description="Notify when a storyboard, video, or voice job finishes.">
+                <Field label="Generation Complete" description="Notify when a storyboard or generated scene finishes.">
                   <Toggle enabled={true} />
                 </Field>
                 <Field label="Continuity Warnings" description="Alert when new continuity issues are detected.">

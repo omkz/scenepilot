@@ -5,32 +5,25 @@ import { cn } from '@/lib/utils'
 import { ACTIVE_PROJECT, PROJECTS } from '@/lib/mock-data'
 import {
   ChevronLeft,
-  ChevronRight,
   ChevronDown,
   LayoutDashboard,
   BookOpen,
   Tv2,
   Clapperboard,
-  Upload,
-  Settings2,
-  Users,
-  MapPin,
-  Scroll,
-  Calendar,
   Film,
   Video,
-  Mic,
-  Scissors,
-  FileCheck,
-  Share2,
-  Languages,
-  History,
-  Sliders,
+  Upload,
+  Settings2,
   ChevronsUpDown,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import {
+  NAVIGATION,
+  SECTION_TO_GROUP,
+  type NavigationItem,
+  type SidebarSection,
+} from '@/lib/navigation'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,93 +31,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-export type SidebarSection = 'overview' | 'assets' | 'story-bible' | 'season-plan' | 'all-episodes' | 'drafts' | 'in-production' | 'published' | 'storyboards' | 'video' | 'voice' | 'editor' | 'final-episodes' | 'social-versions' | 'subtitles' | 'export-history' | 'project-settings'
+export type { SidebarSection } from '@/lib/navigation'
 
-interface NavGroup {
-  id: string
-  label: string
-  icon: React.ReactNode
-  children?: { id: SidebarSection; label: string; icon?: React.ReactNode }[]
-  single?: SidebarSection
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    id: 'overview',
-    label: 'Overview',
-    icon: <LayoutDashboard size={15} />,
-    single: 'overview',
-  },
-  {
-    id: 'story-studio',
-    label: 'Story Studio',
-    icon: <BookOpen size={15} />,
-    children: [
-      { id: 'assets', label: 'Assets', icon: <Users size={14} /> },
-      { id: 'story-bible', label: 'Story Bible', icon: <Scroll size={14} /> },
-      { id: 'season-plan', label: 'Season Plan', icon: <Calendar size={14} /> },
-    ],
-  },
-  {
-    id: 'episodes',
-    label: 'Episodes',
-    icon: <Tv2 size={15} />,
-    children: [
-      { id: 'all-episodes', label: 'All Episodes' },
-      { id: 'drafts', label: 'Drafts' },
-      { id: 'in-production', label: 'In Production' },
-      { id: 'published', label: 'Published' },
-    ],
-  },
-  {
-    id: 'production',
-    label: 'Production',
-    icon: <Clapperboard size={15} />,
-    children: [
-      { id: 'storyboards', label: 'Storyboards', icon: <Film size={14} /> },
-      { id: 'video', label: 'Video', icon: <Video size={14} /> },
-      { id: 'voice', label: 'Voice', icon: <Mic size={14} /> },
-      { id: 'editor', label: 'Editor', icon: <Scissors size={14} /> },
-    ],
-  },
-  {
-    id: 'export',
-    label: 'Export',
-    icon: <Upload size={15} />,
-    children: [
-      { id: 'final-episodes', label: 'Final Episodes', icon: <FileCheck size={14} /> },
-      { id: 'social-versions', label: 'Social Versions', icon: <Share2 size={14} /> },
-      { id: 'subtitles', label: 'Subtitles', icon: <Languages size={14} /> },
-      { id: 'export-history', label: 'Export History', icon: <History size={14} /> },
-    ],
-  },
-  {
-    id: 'project-settings',
-    label: 'Project Settings',
-    icon: <Settings2 size={15} />,
-    single: 'project-settings',
-  },
-]
-
-// Map sidebar sections to their parent group for auto-expand
-const SECTION_TO_GROUP: Record<string, string> = {
-  overview: 'overview',
-  assets: 'story-studio',
-  'story-bible': 'story-studio',
-  'season-plan': 'story-studio',
-  'all-episodes': 'episodes',
-  drafts: 'episodes',
-  'in-production': 'episodes',
-  published: 'episodes',
-  storyboards: 'production',
-  video: 'production',
-  voice: 'production',
-  editor: 'production',
-  'final-episodes': 'export',
-  'social-versions': 'export',
-  subtitles: 'export',
-  'export-history': 'export',
-  'project-settings': 'project-settings',
+const NAV_ICONS: Record<NavigationItem['icon'], React.ReactNode> = {
+  overview: <LayoutDashboard size={15} />,
+  story: <BookOpen size={15} />,
+  episodes: <Tv2 size={15} />,
+  production: <Clapperboard size={15} />,
+  storyboard: <Film size={14} />,
+  scenes: <Video size={14} />,
+  settings: <Settings2 size={15} />,
+  export: <Upload size={15} />,
 }
 
 interface ProjectSidebarProps {
@@ -135,21 +52,19 @@ interface ProjectSidebarProps {
 }
 
 export function ProjectSidebar({ activeSection, onNavigate, collapsed, onToggleCollapse }: ProjectSidebarProps) {
-  const activeGroup = SECTION_TO_GROUP[activeSection] || 'overview'
-  const [expandedGroup, setExpandedGroup] = useState<string>(activeGroup)
+  const activeGroup = SECTION_TO_GROUP[activeSection]
+  const [expandedGroup, setExpandedGroup] = useState(activeGroup === 'production' ? activeGroup : '')
 
-  const handleGroupClick = (group: NavGroup) => {
-    if (group.single) {
-      onNavigate(group.single)
-      setExpandedGroup(group.id)
-    } else {
-      setExpandedGroup(prev => prev === group.id ? '' : group.id)
-      if (group.children && group.children.length > 0) {
-        // navigate to first child if not in this group
-        if (SECTION_TO_GROUP[activeSection] !== group.id) {
-          onNavigate(group.children[0].id)
-        }
-      }
+  const handleGroupClick = (group: typeof NAVIGATION[number]) => {
+    if (group.destination) {
+      onNavigate(group.destination)
+      setExpandedGroup('')
+      return
+    }
+
+    setExpandedGroup(current => current === group.id ? '' : group.id)
+    if (SECTION_TO_GROUP[activeSection] !== group.id && group.children?.[0]) {
+      onNavigate(group.children[0].id)
     }
   }
 
@@ -158,19 +73,15 @@ export function ProjectSidebar({ activeSection, onNavigate, collapsed, onToggleC
       'flex flex-col h-full bg-sidebar border-r border-border transition-all duration-200 shrink-0',
       collapsed ? 'w-12' : 'w-56'
     )}>
-      {/* Project header */}
       {!collapsed && (
         <div className="p-3 border-b border-border">
-          <button
-            onClick={() => {}}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3 group"
-          >
+          <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3 group">
             <ChevronLeft size={12} className="group-hover:-translate-x-0.5 transition-transform" />
             All Projects
           </button>
 
           <DropdownMenu>
-            <DropdownMenuTrigger className="w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-accent transition-colors group text-left outline-none">
+            <DropdownMenuTrigger className="w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-accent transition-colors text-left outline-none">
               <div className={cn('w-7 h-7 rounded shrink-0 bg-gradient-to-br', ACTIVE_PROJECT.coverColor)} />
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium text-foreground truncate">{ACTIVE_PROJECT.name}</div>
@@ -179,11 +90,11 @@ export function ProjectSidebar({ activeSection, onNavigate, collapsed, onToggleC
               <ChevronsUpDown size={12} className="text-muted-foreground shrink-0" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48 bg-popover border-border">
-              {PROJECTS.map(p => (
-                <DropdownMenuItem key={p.id} className="flex items-center gap-2 cursor-pointer">
-                  <div className={cn('w-4 h-4 rounded shrink-0 bg-gradient-to-br', p.coverColor)} />
-                  <span className="text-xs truncate">{p.name}</span>
-                  {p.id === ACTIVE_PROJECT.id && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-500" />}
+              {PROJECTS.map(project => (
+                <DropdownMenuItem key={project.id} className="flex items-center gap-2 cursor-pointer">
+                  <div className={cn('w-4 h-4 rounded shrink-0 bg-gradient-to-br', project.coverColor)} />
+                  <span className="text-xs truncate">{project.name}</span>
+                  {project.id === ACTIVE_PROJECT.id && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-500" />}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -197,11 +108,10 @@ export function ProjectSidebar({ activeSection, onNavigate, collapsed, onToggleC
         </div>
       )}
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-        {NAV_GROUPS.map(group => {
+        {NAVIGATION.map(group => {
           const isExpanded = expandedGroup === group.id
-          const isGroupActive = SECTION_TO_GROUP[activeSection] === group.id
+          const isActive = activeGroup === group.id
 
           return (
             <div key={group.id}>
@@ -210,17 +120,15 @@ export function ProjectSidebar({ activeSection, onNavigate, collapsed, onToggleC
                 className={cn(
                   'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors',
                   collapsed ? 'justify-center' : 'justify-between',
-                  isGroupActive
-                    ? 'text-foreground bg-accent'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                  isActive ? 'text-foreground bg-accent' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                 )}
                 title={collapsed ? group.label : undefined}
               >
                 <span className="flex items-center gap-2">
-                  <span className={isGroupActive ? 'text-amber-400' : ''}>{group.icon}</span>
+                  <span className={isActive ? 'text-amber-400' : ''}>{NAV_ICONS[group.icon]}</span>
                   {!collapsed && <span className="font-medium">{group.label}</span>}
                 </span>
-                {!collapsed && !group.single && (
+                {!collapsed && group.children && (
                   <ChevronDown
                     size={12}
                     className={cn('transition-transform text-muted-foreground', isExpanded && 'rotate-180')}
@@ -228,7 +136,7 @@ export function ProjectSidebar({ activeSection, onNavigate, collapsed, onToggleC
                 )}
               </button>
 
-              {!collapsed && !group.single && isExpanded && group.children && (
+              {!collapsed && isExpanded && group.children && (
                 <div className="mt-0.5 ml-2 pl-3 border-l border-border space-y-0.5">
                   {group.children.map(child => (
                     <button
@@ -241,9 +149,7 @@ export function ProjectSidebar({ activeSection, onNavigate, collapsed, onToggleC
                           : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                       )}
                     >
-                      {child.icon && (
-                        <span className={activeSection === child.id ? 'text-amber-400' : ''}>{child.icon}</span>
-                      )}
+                      <span className={activeSection === child.id ? 'text-amber-400' : ''}>{NAV_ICONS[child.icon]}</span>
                       {child.label}
                     </button>
                   ))}
@@ -254,7 +160,6 @@ export function ProjectSidebar({ activeSection, onNavigate, collapsed, onToggleC
         })}
       </nav>
 
-      {/* Collapse toggle */}
       <div className="p-2 border-t border-border">
         <button
           onClick={onToggleCollapse}

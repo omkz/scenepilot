@@ -14,8 +14,7 @@ interface AIPanelProps {
 }
 
 const SECTION_MAP: Record<string, SidebarSection> = {
-  assets: 'assets',
-  'season-plan': 'season-plan',
+  'story-studio': 'story-studio',
   episodes: 'all-episodes',
   production: 'storyboards',
 }
@@ -48,8 +47,8 @@ export function AIPanel({ open, onClose, onNavigate }: AIPanelProps) {
       {/* Context summary */}
       <div className="px-4 py-3 border-b border-border bg-muted/30">
         <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">Current Context</div>
-        <div className="text-xs text-foreground font-medium">Crimson Signal — Season 1</div>
-        <div className="text-[11px] text-muted-foreground mt-0.5">12 of 40 episodes planned · 3 active jobs</div>
+        <div className="text-xs text-foreground font-medium">Crimson Signal</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">6 episodes planned · 2 in production</div>
       </div>
 
       {/* Suggestions */}

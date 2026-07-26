@@ -40,13 +40,17 @@ function EditableCard({ title, content, className }: { title: string; content: s
   )
 }
 
-export function StoryBiblePage() {
+interface StoryBiblePageProps {
+  embedded?: boolean
+}
+
+export function StoryBiblePage({ embedded = false }: StoryBiblePageProps) {
   return (
-    <div className="flex-1 overflow-y-auto p-6">
+    <div className={embedded ? '' : 'flex-1 overflow-y-auto p-6'}>
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-lg font-bold text-foreground">Story Bible</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">World-building, lore, and narrative foundations</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Shared narrative rules keep every episode consistent</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" className="h-7 text-xs border-border">
@@ -87,7 +91,7 @@ export function StoryBiblePage() {
             <Sparkles size={13} className="text-amber-400 shrink-0 mt-0.5" />
             <div>
               <div className="text-xs font-semibold text-foreground mb-1">Showrunner AI</div>
-              <p className="text-xs text-muted-foreground leading-relaxed">The season midpoint does not currently change the protagonist&apos;s main objective. Consider introducing a revelation in Episode 8 that forces Maren to abandon her original goal.</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">Episode 4 currently lets Maren recognize MERIDIAN protocol details before Tobias reveals them. Review the knowledge timeline before approving the script.</p>
             </div>
           </div>
         </TabsContent>

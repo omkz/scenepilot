@@ -438,8 +438,8 @@ export const ACTIVITY_FEED = [
 ]
 
 export const AI_SUGGESTIONS = [
-  { id: 'AI-001', message: 'Two recurring characters do not have approved full-body reference images.', action: 'Review Characters', href: 'assets' },
-  { id: 'AI-002', message: 'The season midpoint (Ep 8) does not currently change the protagonist\'s main objective.', action: 'View Season Arc', href: 'season-plan' },
-  { id: 'AI-003', message: 'Episode 6 contains a costume continuity issue flagged in production.', action: 'View Episode', href: 'episodes' },
-  { id: 'AI-004', message: 'Storyboard generation is ready for Episode 3 — all assets are approved.', action: 'Start Generation', href: 'production' },
+  { id: 'AI-001', message: 'Two recurring characters do not have approved full-body reference images.', action: 'Review Characters', href: 'story-studio' },
+  { id: 'AI-002', message: 'Yuna Park still needs an approved recurring costume for Episodes 2 and 4.', action: 'Review Costumes', href: 'story-studio' },
+  { id: 'AI-003', message: 'Maren\'s costume changes between Scene 2 and Scene 3 of Episode 1 without a story reason.', action: 'Review Continuity', href: 'episodes' },
+  { id: 'AI-004', message: 'Episode 1 is ready for storyboard generation with approved character, costume, and location references.', action: 'Open Storyboards', href: 'production' },
 ]

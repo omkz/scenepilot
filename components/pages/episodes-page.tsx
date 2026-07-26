@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { EPISODES, SCENES, type Episode, type Scene } from '@/lib/mock-data'
+import { CHARACTERS, COSTUMES, EPISODES, SCENES, type Episode, type Scene } from '@/lib/mock-data'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,11 +16,11 @@ import {
 const STAGE_LABELS: Record<string, string> = {
   'script-draft': 'Script Draft',
   'storyboard-generation': 'Storyboard',
-  'video-rendering': 'Video Render',
-  'voice-generation': 'Voice Gen',
-  editing: 'Editing',
+  'video-rendering': 'Generated Scenes',
+  'voice-generation': 'Generated Scenes',
+  editing: 'Generated Scenes',
   completed: 'Completed',
-  published: 'Published',
+  published: 'Completed',
 }
 
 const STAGE_COLORS: Record<string, string> = {
@@ -33,9 +33,7 @@ const STAGE_COLORS: Record<string, string> = {
   published: 'text-green-400 bg-green-400/10 border-green-400/20',
 }
 
-const PRODUCTION_PIPELINE = [
-  'Outline', 'Script', 'Shot List', 'Storyboard', 'Video', 'Voice', 'Editing', 'Final Render'
-]
+const PRODUCTION_PIPELINE = ['Outline', 'Script', 'Scenes', 'Storyboard', 'Generated Scenes', 'Completed']
 
 function StageBadge({ stage }: { stage: string }) {
   return (
@@ -148,6 +146,7 @@ function SceneInspector({ scene, onClose }: { scene: Scene; onClose: () => void 
           <Field label="Duration" value={scene.duration} />
         </div>
         <Field label="Location" value={scene.locationName} />
+        <Field label="Production Status" value={scene.status === 'approved' ? 'Ready for production' : 'Draft'} />
         <div>
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">Characters</div>
           <div className="flex flex-wrap gap-1.5">
@@ -168,7 +167,7 @@ function SceneInspector({ scene, onClose }: { scene: Scene; onClose: () => void 
         {scene.warnings > 0 && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
             <AlertTriangle size={12} className="text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-muted-foreground leading-relaxed">Continuity check flagged issues in this scene.</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">Costume COSTUME-001 does not match the approved episode timeline.</p>
           </div>
         )}
         <div className="space-y-2 pt-2">
@@ -197,16 +196,11 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function PipelineProgress({ stage }: { stage: string }) {
-  const currentIdx = ['script-draft', 'script-draft', 'script-draft', 'storyboard-generation', 'video-rendering', 'voice-generation', 'editing', 'completed'].findIndex((_, i) =>
-    i === PRODUCTION_PIPELINE.findIndex((_, j) => j === ['script-draft', 'script-draft', 'script-draft', 'storyboard-generation', 'video-rendering', 'voice-generation', 'editing', 'completed'].indexOf(stage))
-  )
   const idx = PRODUCTION_PIPELINE.indexOf(
     stage === 'script-draft' ? 'Script' :
       stage === 'storyboard-generation' ? 'Storyboard' :
-        stage === 'video-rendering' ? 'Video' :
-          stage === 'voice-generation' ? 'Voice' :
-            stage === 'editing' ? 'Editing' :
-              stage === 'completed' ? 'Final Render' : 'Outline'
+        stage === 'video-rendering' || stage === 'voice-generation' || stage === 'editing' ? 'Generated Scenes' :
+          stage === 'completed' || stage === 'published' ? 'Completed' : 'Outline'
   )
 
   return (
@@ -236,21 +230,40 @@ function PipelineProgress({ stage }: { stage: string }) {
   )
 }
 
-interface EpisodesPageProps {
-  filter: 'all-episodes' | 'drafts' | 'in-production' | 'published'
+type EpisodeFilter = 'all' | 'draft' | 'ready' | 'in-production' | 'completed'
+
+const EPISODE_FILTERS: { id: EpisodeFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'draft', label: 'Draft' },
+  { id: 'ready', label: 'Ready' },
+  { id: 'in-production', label: 'In Production' },
+  { id: 'completed', label: 'Completed' },
+]
+
+function matchesEpisodeFilter(episode: Episode, filter: EpisodeFilter) {
+  if (filter === 'draft') return episode.storyStatus === 'draft' || episode.storyStatus === 'pending'
+  if (filter === 'ready') return episode.storyStatus === 'approved' && episode.productionStatus === 'not-started'
+  if (filter === 'in-production') return episode.productionStatus === 'in-progress'
+  if (filter === 'completed') {
+    return episode.productionStatus === 'completed' || episode.stage === 'completed' || episode.stage === 'published'
+  }
+  return true
 }
 
-export function EpisodesPage({ filter }: EpisodesPageProps) {
+export function EpisodesPage() {
   const [selectedEp, setSelectedEp] = useState<Episode | null>(EPISODES[0])
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null)
   const [epTab, setEpTab] = useState('scenes')
+  const [filter, setFilter] = useState<EpisodeFilter>('all')
 
-  const filteredEpisodes = EPISODES.filter(ep => {
-    if (filter === 'drafts') return ep.storyStatus === 'draft' || ep.storyStatus === 'pending'
-    if (filter === 'in-production') return ep.productionStatus === 'in-progress'
-    if (filter === 'published') return ep.stage === 'published'
-    return true
-  })
+  const filteredEpisodes = EPISODES.filter(episode => matchesEpisodeFilter(episode, filter))
+
+  const handleFilterChange = (nextFilter: EpisodeFilter) => {
+    setFilter(nextFilter)
+    const firstMatch = EPISODES.find(episode => matchesEpisodeFilter(episode, nextFilter)) || null
+    setSelectedEp(firstMatch)
+    setSelectedScene(null)
+  }
 
   const epScenes = SCENES.filter(s => s.episodeId === selectedEp?.id)
 
@@ -262,6 +275,22 @@ export function EpisodesPage({ filter }: EpisodesPageProps) {
           <div className="flex items-center gap-2 bg-muted/40 border border-border rounded-lg px-2.5 py-1.5">
             <Search size={12} className="text-muted-foreground" />
             <input className="flex-1 text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground" placeholder="Find episode..." />
+          </div>
+          <div className="flex flex-wrap gap-1 mt-2">
+            {EPISODE_FILTERS.map(item => (
+              <button
+                key={item.id}
+                onClick={() => handleFilterChange(item.id)}
+                className={cn(
+                  'px-2 py-1 rounded-md text-[10px] border transition-colors',
+                  filter === item.id
+                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                    : 'bg-muted/30 border-border text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -429,10 +458,24 @@ export function EpisodesPage({ filter }: EpisodesPageProps) {
                   <div className="bg-card border border-border rounded-xl p-4">
                     <div className="text-xs font-semibold mb-3 flex items-center gap-1.5"><Users size={13} />Characters</div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {['Maren Solis', 'Director Vael', 'Yuna Park'].map(name => (
-                        <div key={name} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border">
+                      {CHARACTERS.filter(character => selectedEp.mainCharacters.includes(character.id)).map(character => (
+                        <div key={character.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border">
                           <div className="w-7 h-7 rounded-full bg-rose-800 shrink-0" />
-                          <span className="text-xs text-foreground truncate">{name}</span>
+                          <div className="min-w-0">
+                            <div className="text-xs text-foreground truncate">{character.name}</div>
+                            <div className="text-[9px] font-mono text-muted-foreground">{character.id}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-card border border-border rounded-xl p-4">
+                    <div className="text-xs font-semibold mb-3 flex items-center gap-1.5"><Shirt size={13} />Assigned Costumes</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {COSTUMES.filter(costume => costume.episodes.includes(selectedEp.id)).map(costume => (
+                        <div key={costume.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border">
+                          <span className="text-xs text-foreground">{costume.name}</span>
+                          <span className="text-[9px] font-mono text-muted-foreground">{costume.id}</span>
                         </div>
                       ))}
                     </div>
@@ -473,6 +516,15 @@ export function EpisodesPage({ filter }: EpisodesPageProps) {
                         <p className="text-xs text-muted-foreground leading-relaxed">Maren&apos;s jacket switches from dark navy to black between Scene 2 and Scene 3. Costume COSTUME-001 must remain consistent.</p>
                       </div>
                     </div>
+                    {selectedEp.continuityWarnings > 1 && (
+                      <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
+                        <AlertTriangle size={13} className="text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="text-xs font-medium text-foreground mb-1">Story knowledge revealed too early</div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">Maren references MERIDIAN protocol details before Tobias reveals them in a later episode.</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </TabsContent>

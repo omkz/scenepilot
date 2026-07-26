@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { FEATURES } from '@/lib/features'
 import { CHARACTERS, LOCATIONS, COSTUMES } from '@/lib/mock-data'
 import type { Character } from '@/lib/mock-data'
+import { StoryBiblePage } from '@/components/pages/story-bible-page'
 import {
-  Users, MapPin, Shirt, Box, Mic2, Palette,
+  Users, MapPin, Shirt, Box, Mic2, Palette, BookOpen,
   Plus, Search, Import, Sparkles,
   Lock, Unlock, CheckCircle2, Clock, FileEdit, AlertCircle,
   ChevronRight, X, Check,
@@ -114,8 +116,16 @@ function CharacterEditor({ char, onClose }: { char: Character; onClose: () => vo
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid grid-cols-4 gap-0 h-auto p-1 m-3 mb-0 bg-muted rounded-lg">
-          {['overview', 'appearance', 'voice', 'continuity'].map(t => (
+        <TabsList className={cn(
+          'grid gap-0 h-auto p-1 m-3 mb-0 bg-muted rounded-lg',
+          FEATURES.voiceGeneration ? 'grid-cols-4' : 'grid-cols-3'
+        )}>
+          {[
+            'overview',
+            'appearance',
+            ...(FEATURES.voiceGeneration ? ['voice'] : []),
+            'continuity',
+          ].map(t => (
             <TabsTrigger key={t} value={t} className="text-[10px] capitalize py-1.5 data-[state=active]:bg-card">
               {t}
             </TabsTrigger>
@@ -174,7 +184,26 @@ function CharacterEditor({ char, onClose }: { char: Character; onClose: () => vo
           </TabsContent>
 
           <TabsContent value="continuity" className="mt-0 space-y-3">
-            <div className="text-xs text-muted-foreground">No continuity issues for this character.</div>
+            {char.id === 'CHAR-001' ? (
+              <>
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <AlertCircle size={12} className="text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs font-medium text-foreground">Reference mismatch in Episode 2</div>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">Maren&apos;s face differs from approved reference {char.id} in two generated shots.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <AlertCircle size={12} className="text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">Character knows protocol details that are revealed in a later episode.</p>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-green-400">
+                <CheckCircle2 size={12} />
+                No continuity issues for this character.
+              </div>
+            )}
           </TabsContent>
         </div>
 
@@ -225,6 +254,15 @@ function LocationCard({ loc }: { loc: typeof LOCATIONS[0] }) {
 export function AssetsPage() {
   const [selectedChar, setSelectedChar] = useState<Character | null>(null)
   const [activeTab, setActiveTab] = useState('characters')
+  const assetTabs = [
+    { value: 'characters', label: 'Characters', icon: <Users size={12} />, count: CHARACTERS.length },
+    { value: 'costumes', label: 'Costumes', icon: <Shirt size={12} />, count: COSTUMES.length },
+    { value: 'locations', label: 'Locations', icon: <MapPin size={12} />, count: LOCATIONS.length },
+    { value: 'story-bible', label: 'Story Bible', icon: <BookOpen size={12} /> },
+    ...(FEATURES.props ? [{ value: 'props', label: 'Props', icon: <Box size={12} />, count: 3 }] : []),
+    ...(FEATURES.voiceGeneration ? [{ value: 'voices', label: 'Voices', icon: <Mic2 size={12} />, count: 5 }] : []),
+    ...(FEATURES.visualStyle ? [{ value: 'visual-style', label: 'Visual Style', icon: <Palette size={12} />, count: 1 }] : []),
+  ]
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -233,8 +271,8 @@ export function AssetsPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Assets</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Manage characters, costumes, locations, and more</p>
+              <h2 className="text-lg font-bold text-foreground">Story Studio</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Approve reusable story assets once, then keep them consistent across every episode</p>
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" className="h-7 text-xs border-border">
@@ -248,19 +286,12 @@ export function AssetsPage() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="h-auto p-1 bg-muted rounded-lg mb-5 flex flex-wrap gap-0">
-              {[
-                { value: 'characters', label: 'Characters', icon: <Users size={12} />, count: CHARACTERS.length },
-                { value: 'costumes', label: 'Costumes', icon: <Shirt size={12} />, count: COSTUMES.length },
-                { value: 'locations', label: 'Locations', icon: <MapPin size={12} />, count: LOCATIONS.length },
-                { value: 'props', label: 'Props', icon: <Box size={12} />, count: 3 },
-                { value: 'voices', label: 'Voices', icon: <Mic2 size={12} />, count: 5 },
-                { value: 'visual-style', label: 'Visual Style', icon: <Palette size={12} />, count: 1 },
-              ].map(tab => (
+              {assetTabs.map(tab => (
                 <TabsTrigger key={tab.value} value={tab.value}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 data-[state=active]:bg-card">
                   {tab.icon}
                   {tab.label}
-                  <span className="text-[10px] text-muted-foreground ml-0.5">{tab.count}</span>
+                  {'count' in tab && <span className="text-[10px] text-muted-foreground ml-0.5">{tab.count}</span>}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -319,6 +350,10 @@ export function AssetsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {LOCATIONS.map(loc => <LocationCard key={loc.id} loc={loc} />)}
               </div>
+            </TabsContent>
+
+            <TabsContent value="story-bible" className="mt-0">
+              <StoryBiblePage embedded />
             </TabsContent>
 
             <TabsContent value="props" className="mt-0">

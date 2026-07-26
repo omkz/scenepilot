@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { SidebarSection } from './project-sidebar'
+import { FEATURES } from '@/lib/features'
+import { SECTION_META, type SidebarSection } from '@/lib/navigation'
 import { ACTIVE_PROJECT, GENERATION_JOBS } from '@/lib/mock-data'
 import {
   ChevronRight,
@@ -18,58 +19,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from '@/components/ui/sheet'
-
-const SECTION_LABELS: Record<string, string[]> = {
-  overview: ['Crimson Signal', 'Overview'],
-  assets: ['Crimson Signal', 'Story Studio', 'Assets'],
-  'story-bible': ['Crimson Signal', 'Story Studio', 'Story Bible'],
-  'season-plan': ['Crimson Signal', 'Story Studio', 'Season Plan'],
-  'all-episodes': ['Crimson Signal', 'Episodes', 'All Episodes'],
-  drafts: ['Crimson Signal', 'Episodes', 'Drafts'],
-  'in-production': ['Crimson Signal', 'Episodes', 'In Production'],
-  published: ['Crimson Signal', 'Episodes', 'Published'],
-  storyboards: ['Crimson Signal', 'Production', 'Storyboards'],
-  video: ['Crimson Signal', 'Production', 'Video'],
-  voice: ['Crimson Signal', 'Production', 'Voice'],
-  editor: ['Crimson Signal', 'Production', 'Editor'],
-  'final-episodes': ['Crimson Signal', 'Export', 'Final Episodes'],
-  'social-versions': ['Crimson Signal', 'Export', 'Social Versions'],
-  subtitles: ['Crimson Signal', 'Export', 'Subtitles'],
-  'export-history': ['Crimson Signal', 'Export', 'Export History'],
-  'project-settings': ['Crimson Signal', 'Project Settings'],
-}
-
-const SECTION_ACTIONS: Record<string, string> = {
-  overview: 'Create Episode',
-  assets: 'Add Character',
-  'story-bible': 'Add Entry',
-  'season-plan': 'Generate Plan',
-  'all-episodes': 'Create Episode',
-  drafts: 'Create Episode',
-  'in-production': 'Create Episode',
-  published: 'Export Episode',
-  storyboards: 'Generate Storyboard',
-  video: 'Generate Video',
-  voice: 'Generate Voice',
-  editor: 'Auto Assemble',
-  'final-episodes': 'Export Episode',
-  'social-versions': 'Create Social Version',
-  subtitles: 'Generate Subtitles',
-  'export-history': 'Export Episode',
-  'project-settings': 'Save Settings',
-}
 
 const TEAM = [
   { initials: 'KL', color: 'bg-blue-700' },
@@ -86,9 +35,10 @@ interface TopNavProps {
 }
 
 export function TopNav({ activeSection, onAIToggle, onQueueToggle, onMobileMenuToggle, aiOpen }: TopNavProps) {
-  const [searchOpen, setSearchOpen] = useState(false)
-  const breadcrumbs = SECTION_LABELS[activeSection] || ['Crimson Signal']
-  const primaryAction = SECTION_ACTIONS[activeSection] || 'Create'
+  const [, setSearchOpen] = useState(false)
+  const sectionMeta = SECTION_META[activeSection] || SECTION_META.overview!
+  const breadcrumbs = sectionMeta.breadcrumbs
+  const primaryAction = sectionMeta.action
   const activeJobs = GENERATION_JOBS.filter(j => j.status === 'running').length
 
   return (
@@ -129,19 +79,20 @@ export function TopNav({ activeSection, onAIToggle, onQueueToggle, onMobileMenuT
           <kbd className="hidden sm:inline text-[10px] bg-background border border-border rounded px-1 ml-1">⌘K</kbd>
         </button>
 
-        {/* Generation queue */}
-        <button
-          onClick={onQueueToggle}
-          className="relative flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          title="Generation Queue"
-        >
-          <Activity size={14} />
-          {activeJobs > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">
-              {activeJobs}
-            </span>
-          )}
-        </button>
+        {FEATURES.advancedGenerationQueue && (
+          <button
+            onClick={onQueueToggle}
+            className="relative flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Generation Queue"
+          >
+            <Activity size={14} />
+            {activeJobs > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">
+                {activeJobs}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* Notifications */}
         <button className="relative flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
