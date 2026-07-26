@@ -29,6 +29,11 @@ const STATUS_COLORS = {
   'not-started': 'text-muted-foreground bg-muted/40 border-border',
 }
 
+function getWaveformHeight(lineId: string, index: number) {
+  const seed = lineId.charCodeAt(lineId.length - 1)
+  return 18 + ((seed * 17 + index * 37) % 82)
+}
+
 function ShotCard({ shot }: { shot: Shot }) {
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden group hover:border-border/80 transition-colors">
@@ -111,7 +116,7 @@ function VoiceLineRow({ line }: { line: VoiceLine }) {
                 line.audioStatus === 'completed' ? 'bg-green-400/40' :
                   line.audioStatus === 'in-progress' ? 'bg-amber-400/40' : 'bg-muted'
               )}
-              style={{ height: `${Math.random() * 100}%`, minHeight: 2 }}
+              style={{ height: `${getWaveformHeight(line.id, i)}%`, minHeight: 2 }}
             />
           ))}
         </div>
