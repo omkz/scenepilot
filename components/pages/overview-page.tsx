@@ -4,15 +4,13 @@ import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   ACTIVE_PROJECT,
-  CHARACTERS,
-  COSTUMES,
-  LOCATIONS,
   EPISODES,
   CONTINUITY_ISSUES,
 } from '@/lib/mock-data'
 import type { SidebarSection } from '@/lib/navigation'
 import { sectionHref } from '@/lib/navigation'
 import type { ProjectDto } from '@/lib/projects/types'
+import type { AssetReadiness } from '@/lib/assets/readiness'
 import {
   BookOpen,
   Tv2,
@@ -59,67 +57,24 @@ const STAGE_ICONS: Record<string, typeof Film> = {
 
 interface OverviewPageProps {
   project: ProjectDto
+  assetReadiness: AssetReadiness
 }
 
-function getNextAction(): { title: string; detail: string; action: string; section: SidebarSection } {
-  const approvedCharacters = CHARACTERS.filter(item => item.approvalStatus === 'approved').length
-  const approvedCostumes = COSTUMES.filter(item => item.approvalStatus === 'approved').length
-  const approvedLocations = LOCATIONS.filter(item => item.approvalStatus === 'approved').length
-
-  if (approvedCharacters < CHARACTERS.length) {
-    return {
-      title: 'Complete the main character references',
-      detail: 'Approve the remaining character identities before generating more episode shots.',
-      action: 'Review Characters',
-      section: 'story-studio',
-    }
-  }
-  if (approvedCostumes < COSTUMES.length) {
-    return {
-      title: 'Assign costumes to recurring characters',
-      detail: 'Every recurring character needs an approved costume for the episode timeline.',
-      action: 'Review Costumes',
-      section: 'story-studio',
-    }
-  }
-  if (approvedLocations < LOCATIONS.length) {
-    return {
-      title: 'Approve the primary locations',
-      detail: 'Lock the visual reference for each recurring location before production.',
-      action: 'Review Locations',
-      section: 'story-studio',
-    }
-  }
-  if (CONTINUITY_ISSUES.length > 0) {
-    return {
-      title: 'Resolve continuity warnings',
-      detail: 'Review asset and story conflicts before generating the next scene.',
-      action: 'Open Episode',
-      section: 'all-episodes',
-    }
-  }
-  return {
-    title: 'Generate the Episode 1 storyboard',
-    detail: 'The story foundation and reusable assets are ready for production.',
-    action: 'Open Storyboards',
-    section: 'storyboards',
-  }
-}
-
-export function OverviewPage({ project }: OverviewPageProps) {
+export function OverviewPage({ project, assetReadiness }: OverviewPageProps) {
   const router = useRouter()
   const onNavigate = (section: SidebarSection) => router.push(sectionHref(project.id, section))
   const activeEpisodes = EPISODES.slice(0, 3)
-  const approvedCharacters = CHARACTERS.filter(item => item.approvalStatus === 'approved').length
-  const approvedCostumes = COSTUMES.filter(item => item.approvalStatus === 'approved').length
-  const approvedLocations = LOCATIONS.filter(item => item.approvalStatus === 'approved').length
+  const approvedCharacters = assetReadiness.characters.approved
+  const approvedCostumes = assetReadiness.costumes.approved
+  const approvedLocations = assetReadiness.locations.approved
+  const totalAssets = assetReadiness.characters.total + assetReadiness.costumes.total + assetReadiness.locations.total
+  const totalApprovedAssets = approvedCharacters + approvedCostumes + approvedLocations
   const inProduction = EPISODES.filter(item => item.productionStatus === 'in-progress').length
   const continuityCount = CONTINUITY_ISSUES.length
-  const nextAction = getNextAction()
+  const nextAction = assetReadiness.nextAction
 
-  // Temporary mock workflow metrics remain until story assets and episodes are persisted.
+  // Episode and production progress remain mock values until those milestones are persisted.
   const mockWorkflowMetrics = {
-    storyProgress: ACTIVE_PROJECT.storyProgress,
     episodeProgress: ACTIVE_PROJECT.episodeProgress,
     productionProgress: ACTIVE_PROJECT.productionProgress,
   }
@@ -129,8 +84,8 @@ export function OverviewPage({ project }: OverviewPageProps) {
       id: 'story-studio' as SidebarSection,
       label: 'Story Studio',
       icon: <BookOpen size={15} />,
-      progress: mockWorkflowMetrics.storyProgress,
-      summary: `${approvedCharacters + approvedCostumes + approvedLocations} approved reusable assets`,
+      progress: totalAssets === 0 ? 0 : Math.round((totalApprovedAssets / totalAssets) * 100),
+      summary: `${totalApprovedAssets} / ${totalAssets} approved reusable assets`,
       color: 'text-blue-400',
     },
     {
@@ -152,9 +107,9 @@ export function OverviewPage({ project }: OverviewPageProps) {
   ]
 
   const readiness = [
-    { label: 'Characters approved', value: `${approvedCharacters} / ${CHARACTERS.length}`, icon: Users },
-    { label: 'Costumes approved', value: `${approvedCostumes} / ${COSTUMES.length}`, icon: Shirt },
-    { label: 'Locations approved', value: `${approvedLocations} / ${LOCATIONS.length}`, icon: MapPin },
+    { label: 'Characters approved', value: `${approvedCharacters} / ${assetReadiness.characters.total}`, icon: Users },
+    { label: 'Costumes approved', value: `${approvedCostumes} / ${assetReadiness.costumes.total}`, icon: Shirt },
+    { label: 'Locations approved', value: `${approvedLocations} / ${assetReadiness.locations.total}`, icon: MapPin },
     { label: 'Story bible readiness', value: 'Ready', icon: BookOpen },
     { label: 'Planned episodes', value: String(EPISODES.length), icon: Tv2 },
     { label: 'In production', value: String(inProduction), icon: Clapperboard },
@@ -183,7 +138,12 @@ export function OverviewPage({ project }: OverviewPageProps) {
               <Button size="sm" className="h-7 text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold" onClick={() => onNavigate('all-episodes')}>
                 <Plus size={11} className="mr-1" /> Create Episode
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs border-border" onClick={() => onNavigate(nextAction.section)}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs border-border"
+                onClick={() => router.push(`/projects/${project.id}/story-studio?tab=${nextAction.tab}`)}
+              >
                 <Play size={11} className="mr-1" /> Continue Workflow
               </Button>
             </div>
@@ -242,8 +202,12 @@ export function OverviewPage({ project }: OverviewPageProps) {
               </div>
               <h2 className="text-sm font-semibold text-foreground">{nextAction.title}</h2>
               <p className="text-xs text-muted-foreground mt-1 mb-4">{nextAction.detail}</p>
-              <Button size="sm" className="h-7 text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold" onClick={() => onNavigate(nextAction.section)}>
-                {nextAction.action}
+              <Button
+                size="sm"
+                className="h-7 text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold"
+                onClick={() => router.push(`/projects/${project.id}/story-studio?tab=${nextAction.tab}`)}
+              >
+                Open {nextAction.tab === 'story-bible' ? 'Story Bible' : nextAction.tab}
               </Button>
             </section>
 

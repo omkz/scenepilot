@@ -22,14 +22,12 @@ export function getDatabase() {
   }
 
   const client = globalDatabase.scenepilotPostgres || postgres(databaseUrl, {
-    max: process.env.NODE_ENV === 'development' ? 5 : 10,
+    max: Number(process.env.DATABASE_POOL_SIZE || 3),
   })
   const database = drizzle({ client, schema })
 
-  if (process.env.NODE_ENV !== 'production') {
-    globalDatabase.scenepilotPostgres = client
-    globalDatabase.scenepilotDatabase = database
-  }
+  globalDatabase.scenepilotPostgres = client
+  globalDatabase.scenepilotDatabase = database
 
   return database
 }
