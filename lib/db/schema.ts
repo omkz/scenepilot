@@ -283,6 +283,36 @@ export const storyboardJobs = pgTable('storyboard_jobs', {
   index('storyboard_jobs_status_idx').on(table.status),
 ])
 
+export const aiGenerations = pgTable('ai_generations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  episodeId: uuid('episode_id').references(() => episodes.id, { onDelete: 'cascade' }),
+  taskType: varchar('task_type', { length: 60 }).notNull(),
+  provider: varchar('provider', { length: 40 }).notNull(),
+  model: varchar('model', { length: 100 }).notNull(),
+  promptVersion: varchar('prompt_version', { length: 60 }).notNull(),
+  status: varchar('status', { length: 20 }).default('Queued').notNull(),
+  inputSnapshot: jsonb('input_snapshot').notNull(),
+  output: jsonb('output'),
+  rawOutput: text('raw_output'),
+  errorCode: varchar('error_code', { length: 50 }),
+  errorMessage: text('error_message'),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  totalTokens: integer('total_tokens'),
+  durationMs: integer('duration_ms'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+  completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+  appliedAt: timestamp('applied_at', { withTimezone: true, mode: 'date' }),
+}, table => [
+  index('ai_generations_project_id_idx').on(table.projectId),
+  index('ai_generations_episode_id_idx').on(table.episodeId),
+  index('ai_generations_task_type_idx').on(table.taskType),
+  index('ai_generations_status_idx').on(table.status),
+  index('ai_generations_created_at_idx').on(table.createdAt),
+])
+
 export type ProjectRecord = typeof projects.$inferSelect
 export type CharacterRecord = typeof characters.$inferSelect
 export type CostumeRecord = typeof costumes.$inferSelect
@@ -293,3 +323,4 @@ export type SceneCharacterRecord = typeof sceneCharacters.$inferSelect
 export type ShotRecord = typeof shots.$inferSelect
 export type ShotCharacterRecord = typeof shotCharacters.$inferSelect
 export type StoryboardJobRecord = typeof storyboardJobs.$inferSelect
+export type AIGenerationRecord = typeof aiGenerations.$inferSelect

@@ -24,6 +24,9 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { EpisodeForm } from '@/components/episodes/episode-form'
+import { AIOutlinePanel, type AIOutlineContext } from '@/components/episodes/ai-outline-panel'
+import type { AIGenerationDto } from '@/lib/ai/types'
+import type { PersistedEpisodeOutline } from '@/lib/ai/schemas/episode-outline'
 import { AssignmentFormSheet, SceneFormSheet } from '@/components/episodes/scene-forms'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
@@ -57,6 +60,7 @@ export function EpisodeDetail({
   issues,
   readiness,
   error,
+  aiOutline,
 }: {
   projectId: string
   episode: EpisodeDto
@@ -70,6 +74,14 @@ export function EpisodeDetail({
   issues: ContinuityIssue[]
   readiness: EpisodeReadiness
   error?: string
+  aiOutline: {
+    context: AIOutlineContext
+    generations: AIGenerationDto[]
+    selectedGeneration: AIGenerationDto | null
+    selectedOutline: PersistedEpisodeOutline | null
+    aiError?: string
+    notice?: string
+  }
 }) {
   const uniqueCharacters = new Set(assignments.map(item => item.characterId)).size
   const uniqueLocations = new Set(scenes.map(scene => scene.locationId).filter(Boolean)).size
@@ -107,7 +119,7 @@ export function EpisodeDetail({
       <div className="grid gap-4 md:grid-cols-2"><section className="rounded-xl border bg-card p-4"><h2 className="text-sm font-semibold">Episode status</h2><div className="mt-3 flex flex-wrap gap-2">{['Draft', 'Ready', 'In Review', 'Approved'].map(status => <form key={status} action={setEpisodeStatusAction.bind(null, projectId, episode.id, status)}><Button type="submit" size="sm" variant={episode.status === status ? 'default' : 'outline'}>{status}</Button></form>)}</div><div className="mt-4 text-xs text-muted-foreground">Production: {episode.productionStatus}</div></section><section className="rounded-xl border bg-card p-4"><h2 className="text-sm font-semibold">Duration coverage</h2><div className="mt-2 text-2xl font-bold">{readiness.totalSceneDuration}s / {episode.targetDurationSeconds}s</div><p className="mt-2 text-xs text-muted-foreground">{readiness.blockingIssues.length ? readiness.blockingIssues.join(' · ') : 'All production readiness requirements are satisfied.'}</p></section></div>
     </div>}
 
-    {activeTab === 'outline' && <div className="mx-auto max-w-3xl"><EpisodeForm projectId={projectId} episode={episode} defaultDuration={episode.targetDurationSeconds} returnTab="outline" /></div>}
+    {activeTab === 'outline' && <div className="mx-auto max-w-4xl space-y-5"><AIOutlinePanel projectId={projectId} episodeId={episode.id} {...aiOutline} /><section className="rounded-xl border bg-card p-5"><h2 className="mb-4 text-sm font-semibold">Manual episode outline</h2><EpisodeForm projectId={projectId} episode={episode} defaultDuration={episode.targetDurationSeconds} returnTab="outline" /></section></div>}
     {activeTab === 'script' && <ScriptForm projectId={projectId} episode={episode} />}
 
     {activeTab === 'scenes' && <div className="grid gap-4 lg:grid-cols-[280px_1fr]">

@@ -32,4 +32,19 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scenepilot
 - `pnpm db:migrate` — apply pending migrations.
 - `pnpm db:studio` — open Drizzle Studio.
 
-Database access is server-only. Project mutations use Server Actions and validation from Zod; story assets and episode data remain mocked for the current milestone.
+Database access is server-only. Project, asset, episode, scene, and storyboard mutations use Server Actions with Zod validation and project-scoped query modules.
+
+## AI episode outlines
+
+AI calls run only from server-side task services. Qwen is the first provider adapter, while provider and model selection remain backend controlled:
+
+```env
+AI_DEFAULT_PROVIDER=qwen
+AI_DEFAULT_MODEL=qwen-plus
+QWEN_API_KEY=
+QWEN_BASE_URL=
+```
+
+Set `QWEN_BASE_URL` to the OpenAI-compatible endpoint supplied for your Qwen account. Do not expose these variables through `NEXT_PUBLIC_*`.
+
+Approve reusable Story Studio characters and locations before generating an episode outline. Generated outlines are stored as previews and never modify an episode until a user explicitly selects **Apply to Episode**. Applying an outline updates the title, summary, outline, and cliffhanger only; scripts and scenes remain unchanged.
