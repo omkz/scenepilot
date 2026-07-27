@@ -48,3 +48,5 @@ QWEN_BASE_URL=
 Set `QWEN_BASE_URL` to the OpenAI-compatible endpoint supplied for your Qwen account. Do not expose these variables through `NEXT_PUBLIC_*`.
 
 Approve reusable Story Studio characters and locations before generating an episode outline. Generated outlines are stored as previews and never modify an episode until a user explicitly selects **Apply to Episode**. Applying an outline updates the title, summary, outline, and cliffhanger only; scripts and scenes remain unchanged.
+
+The Episode Scenes tab can turn an applied outline into an editable AI scene-plan preview. Preview edits are validated and stored in the generation record. Scenes and character assignments are created only after an explicit append or replace confirmation; replace mode soft-archives existing scenes and both modes run in a single database transaction.

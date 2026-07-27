@@ -5,6 +5,7 @@ import { ScenePilotAIError, normalizeAIError } from '@/lib/ai/errors'
 import { generateStructured } from '@/lib/ai/generate'
 import { buildEpisodeOutlinePrompt, EPISODE_OUTLINE_SYSTEM_PROMPT } from '@/lib/ai/prompts/episode-outline'
 import { episodeOutlineSchema, type EpisodeOutline, type PersistedEpisodeOutline } from '@/lib/ai/schemas/episode-outline'
+import { AI_TASK_TYPES } from '@/lib/ai/task-types'
 import { listCharacters } from '@/lib/db/queries/characters'
 import { listCostumes } from '@/lib/db/queries/costumes'
 import { getEpisode, listEpisodes } from '@/lib/db/queries/episodes'
@@ -78,7 +79,7 @@ export async function generateEpisodeOutline({ projectId, episodeId }: { project
   const generation = await createAIGeneration({
     projectId,
     episodeId,
-    taskType: 'Episode Outline',
+    taskType: AI_TASK_TYPES.episodeOutline,
     provider: config.provider,
     model: config.model,
     promptVersion: config.promptVersion,
@@ -121,7 +122,7 @@ export async function generateEpisodeOutline({ projectId, episodeId }: { project
     if (!completed) throw new ScenePilotAIError('AI_UNKNOWN_ERROR', 'Unable to persist completed generation.')
     console.info('ai_generation', {
       generationId: generation.id,
-      taskType: 'Episode Outline',
+      taskType: AI_TASK_TYPES.episodeOutline,
       provider: result.provider,
       model: result.model,
       status: 'Completed',
@@ -139,7 +140,7 @@ export async function generateEpisodeOutline({ projectId, episodeId }: { project
     })
     console.error('ai_generation', {
       generationId: generation.id,
-      taskType: 'Episode Outline',
+      taskType: AI_TASK_TYPES.episodeOutline,
       provider: config.provider,
       model: config.model,
       status: 'Failed',

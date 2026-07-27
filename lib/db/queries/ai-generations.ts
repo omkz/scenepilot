@@ -7,6 +7,7 @@ import { aiGenerations, episodes, projects, type AIGenerationRecord } from '@/li
 import type { AIErrorCode } from '@/lib/ai/errors'
 import type { AIGenerationDto, ScenePilotAIResult } from '@/lib/ai/types'
 import type { PersistedEpisodeOutline } from '@/lib/ai/schemas/episode-outline'
+import { AI_TASK_TYPES } from '@/lib/ai/task-types'
 
 const valid = (...ids: string[]) => ids.every(id => z.uuid().safeParse(id).success)
 
@@ -15,6 +16,7 @@ function serialize(row: AIGenerationRecord): AIGenerationDto {
     ...row,
     status: row.status as AIGenerationDto['status'],
     createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
     startedAt: row.startedAt?.toISOString() || null,
     completedAt: row.completedAt?.toISOString() || null,
     appliedAt: row.appliedAt?.toISOString() || null,
@@ -50,6 +52,7 @@ export async function markAIGenerationRunning(projectId: string, generationId: s
     startedAt: new Date(),
     errorCode: null,
     errorMessage: null,
+    updatedAt: new Date(),
   }).where(and(eq(aiGenerations.projectId, projectId), eq(aiGenerations.id, generationId))).returning()
   return row ? serialize(row) : null
 }
@@ -70,6 +73,7 @@ export async function completeAIGeneration<T>(
     totalTokens: result.usage?.totalTokens,
     durationMs: result.durationMs,
     completedAt: new Date(),
+    updatedAt: new Date(),
   }).where(and(eq(aiGenerations.projectId, projectId), eq(aiGenerations.id, generationId))).returning()
   return row ? serialize(row) : null
 }
@@ -86,24 +90,30 @@ export async function failAIGeneration(
     errorMessage: error.message,
     durationMs: error.durationMs,
     completedAt: new Date(),
+    updatedAt: new Date(),
   }).where(and(eq(aiGenerations.projectId, projectId), eq(aiGenerations.id, generationId))).returning()
   return row ? serialize(row) : null
 }
 
-export async function getAIGeneration(projectId: string, generationId: string) {
-  if (!valid(projectId, generationId)) return null
+export async function getAIGeneration(projectId: string, episodeId: string, generationId: string) {
+  if (!valid(projectId, episodeId, generationId)) return null
   const [row] = await getDatabase().select().from(aiGenerations).where(and(
     eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
     eq(aiGenerations.id, generationId),
   )).limit(1)
   return row ? serialize(row) : null
 }
 
-export async function listEpisodeGenerations(projectId: string, episodeId: string) {
+export async function listEpisodeGenerations(projectId: string, episodeId: string, taskType?: string) {
   if (!valid(projectId, episodeId)) return []
-  const rows = await getDatabase().select().from(aiGenerations).where(and(
+  const conditions = [
     eq(aiGenerations.projectId, projectId),
     eq(aiGenerations.episodeId, episodeId),
+  ]
+  if (taskType) conditions.push(eq(aiGenerations.taskType, taskType))
+  const rows = await getDatabase().select().from(aiGenerations).where(and(
+    ...conditions
   )).orderBy(desc(aiGenerations.createdAt))
   return rows.map(serialize)
 }
@@ -113,6 +123,7 @@ export async function markAIGenerationApplied(projectId: string, generationId: s
   const [row] = await getDatabase().update(aiGenerations).set({
     status: 'Applied',
     appliedAt: new Date(),
+    updatedAt: new Date(),
   }).where(and(
     eq(aiGenerations.projectId, projectId),
     eq(aiGenerations.id, generationId),
@@ -133,7 +144,7 @@ export async function applyEpisodeOutlineGeneration(
       eq(aiGenerations.projectId, projectId),
       eq(aiGenerations.episodeId, episodeId),
       eq(aiGenerations.id, generationId),
-      eq(aiGenerations.taskType, 'Episode Outline'),
+      eq(aiGenerations.taskType, AI_TASK_TYPES.episodeOutline),
       eq(aiGenerations.status, 'Completed'),
     )).limit(1)
     if (!generation) return null
@@ -150,7 +161,7 @@ export async function applyEpisodeOutlineGeneration(
     )).returning({ id: episodes.id })
     if (!episode) return null
     const now = new Date()
-    await transaction.update(aiGenerations).set({ status: 'Applied', appliedAt: now }).where(and(
+    await transaction.update(aiGenerations).set({ status: 'Applied', appliedAt: now, updatedAt: now }).where(and(
       eq(aiGenerations.projectId, projectId),
       eq(aiGenerations.id, generationId),
     ))

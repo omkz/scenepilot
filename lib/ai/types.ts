@@ -49,7 +49,9 @@ export interface AIGenerationDto {
   totalTokens: number | null
   durationMs: number | null
   createdAt: string
+  updatedAt: string
   startedAt: string | null
   completedAt: string | null
   appliedAt: string | null
+  applyMetadata: unknown
 }

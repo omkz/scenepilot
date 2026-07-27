@@ -25,8 +25,10 @@ import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
 import { EpisodeForm } from '@/components/episodes/episode-form'
 import { AIOutlinePanel, type AIOutlineContext } from '@/components/episodes/ai-outline-panel'
+import { AIScenePlanPanel, type AIScenePlanContext } from '@/components/episodes/ai-scene-plan-panel'
 import type { AIGenerationDto } from '@/lib/ai/types'
 import type { PersistedEpisodeOutline } from '@/lib/ai/schemas/episode-outline'
+import type { PersistedScenePlan } from '@/lib/ai/schemas/scene-plan'
 import { AssignmentFormSheet, SceneFormSheet } from '@/components/episodes/scene-forms'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
@@ -61,6 +63,7 @@ export function EpisodeDetail({
   readiness,
   error,
   aiOutline,
+  aiScenePlan,
 }: {
   projectId: string
   episode: EpisodeDto
@@ -80,6 +83,15 @@ export function EpisodeDetail({
     selectedGeneration: AIGenerationDto | null
     selectedOutline: PersistedEpisodeOutline | null
     aiError?: string
+    notice?: string
+  }
+  aiScenePlan: {
+    context: AIScenePlanContext
+    generations: AIGenerationDto[]
+    selectedGeneration: AIGenerationDto | null
+    selectedScenePlan: PersistedScenePlan | null
+    aiError?: string
+    scenePlanError?: string
     notice?: string
   }
 }) {
@@ -122,7 +134,9 @@ export function EpisodeDetail({
     {activeTab === 'outline' && <div className="mx-auto max-w-4xl space-y-5"><AIOutlinePanel projectId={projectId} episodeId={episode.id} {...aiOutline} /><section className="rounded-xl border bg-card p-5"><h2 className="mb-4 text-sm font-semibold">Manual episode outline</h2><EpisodeForm projectId={projectId} episode={episode} defaultDuration={episode.targetDurationSeconds} returnTab="outline" /></section></div>}
     {activeTab === 'script' && <ScriptForm projectId={projectId} episode={episode} />}
 
-    {activeTab === 'scenes' && <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+    {activeTab === 'scenes' && <div className="space-y-5">
+      <AIScenePlanPanel key={aiScenePlan.selectedGeneration?.id || 'scene-plan'} projectId={projectId} episodeId={episode.id} {...aiScenePlan} />
+      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
       <aside className="space-y-2"><div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-semibold">Scene order</h2><SceneFormSheet projectId={projectId} episodeId={episode.id} locations={locations} /></div>{scenes.length === 0 ? <div className="rounded-xl border border-dashed p-8 text-center text-xs text-muted-foreground">No scenes yet.</div> : scenes.map((scene, index) => <div key={scene.id} className="rounded-lg border bg-card p-3"><div className="flex items-start gap-2"><div className="rounded bg-muted px-2 py-1 text-[10px] font-bold">{index + 1}</div><div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{scene.title}</div><div className="mt-1 text-[10px] text-muted-foreground">{scene.targetDurationSeconds}s · {scene.locationName || 'No location'} · {scene.characterCount} cast</div></div></div><div className="mt-2 flex"><form action={moveSceneAction.bind(null, projectId, episode.id, scene.id, 'up')}><Button type="submit" size="sm" variant="ghost" disabled={index === 0}><ArrowUp size={10} /></Button></form><form action={moveSceneAction.bind(null, projectId, episode.id, scene.id, 'down')}><Button type="submit" size="sm" variant="ghost" disabled={index === scenes.length - 1}><ArrowDown size={10} /></Button></form></div></div>)}</aside>
       <main className="space-y-4">{scenes.map(scene => {
         const sceneAssignments = assignments.filter(item => item.sceneId === scene.id)
@@ -138,6 +152,7 @@ export function EpisodeDetail({
       })}
       {archivedScenes.length > 0 && <section className="rounded-xl border border-dashed p-4"><h2 className="text-xs font-semibold">Archived scenes</h2><div className="mt-3 space-y-2">{archivedScenes.map(scene => <div key={scene.id} className="flex items-center justify-between rounded-lg bg-muted/30 p-3"><div><div className="text-xs font-medium">{scene.title}</div><div className="text-[10px] text-muted-foreground">Scene {scene.sceneNumber} · Archived</div></div><div className="flex gap-2"><form action={restoreSceneAction.bind(null, projectId, episode.id, scene.id)}><Button type="submit" size="sm" variant="outline">Restore</Button></form><SceneDeleteDialog projectId={projectId} episodeId={episode.id} scene={scene} /></div></div>)}</div></section>}
       </main>
+      </div>
     </div>}
 
     {activeTab === 'assets' && <div className="grid gap-4 md:grid-cols-3">{assetGroups.map(([label, values]) => <section key={label} className="rounded-xl border bg-card p-4"><h2 className="text-sm font-semibold">{label}</h2><div className="mt-3 space-y-2">{values.length === 0 ? <p className="text-xs text-muted-foreground">None used.</p> : values.map(value => <div key={String(value.code)} className="rounded-lg border p-2"><div className="text-xs">{value.name}</div><div className="font-mono text-[10px] text-amber-400">{value.code} · {value.status}</div><div className="mt-1 text-[10px] text-muted-foreground">{value.scenes.length} scene usage{value.scenes.length === 1 ? '' : 's'} · {value.scenes.join(', ')}</div></div>)}</div></section>)}</div>}

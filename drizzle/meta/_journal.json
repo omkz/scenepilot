@@ -36,6 +36,13 @@
       "when": 1785153677568,
       "tag": "0004_ancient_retro_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785169492345,
+      "tag": "0005_furry_nitro",
+      "breakpoints": true
     }
   ]
 }

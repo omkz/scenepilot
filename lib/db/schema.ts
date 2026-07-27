@@ -302,9 +302,11 @@ export const aiGenerations = pgTable('ai_generations', {
   totalTokens: integer('total_tokens'),
   durationMs: integer('duration_ms'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
   completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
   appliedAt: timestamp('applied_at', { withTimezone: true, mode: 'date' }),
+  applyMetadata: jsonb('apply_metadata'),
 }, table => [
   index('ai_generations_project_id_idx').on(table.projectId),
   index('ai_generations_episode_id_idx').on(table.episodeId),
