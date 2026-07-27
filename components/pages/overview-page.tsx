@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { AlertTriangle, BookOpen, Clapperboard, Film, MapPin, Plus, Shirt, TrendingUp, Tv2, Users, Zap } from 'lucide-react'
+import { AlertTriangle, BookOpen, CheckCircle2, Clapperboard, Film, MapPin, Plus, Shirt, TrendingUp, Tv2, Users, Zap } from 'lucide-react'
 import type { AssetReadiness } from '@/lib/assets/readiness'
 import type { ProjectEpisodeOverview } from '@/lib/episodes/project-overview'
 import type { ProjectDto } from '@/lib/projects/types'
@@ -23,6 +23,12 @@ export function OverviewPage({ project, assetReadiness, episodeOverview }: { pro
         ? { title: 'Add scenes to Episode 1', detail: 'Divide the episode into production-ready scene beats.', href: `/projects/${project.id}/episodes/${firstEpisode.episode.id}?tab=scenes`, label: 'Add Scenes' }
         : episodeOverview.errors > 0
           ? { title: 'Resolve continuity errors', detail: 'Blocking continuity errors must be resolved before production.', href: `/projects/${project.id}/episodes/${firstEpisode.episode.id}?tab=continuity`, label: 'Review Continuity' }
+          : episodeOverview.items.some(item => item.episode.productionStatus === 'Ready for Production' && item.totalShots === 0)
+            ? { title: 'Create the first shot list', detail: 'A production-ready episode needs ordered storyboard shots.', href: `/projects/${project.id}/production`, label: 'Open Production' }
+            : episodeOverview.storyboardErrors > 0
+              ? { title: 'Resolve storyboard errors', detail: 'Fix blocking shot and asset consistency issues.', href: `/projects/${project.id}/production`, label: 'Review Storyboard' }
+              : episodeOverview.items.some(item => item.storyboardReady && item.episode.storyboardStatus !== 'Approved')
+                ? { title: 'Approve the storyboard', detail: 'Every scene has complete, approved shot coverage.', href: `/projects/${project.id}/production`, label: 'Approve Storyboard' }
           : episodeOverview.items.some(item => item.readyForProduction && item.episode.productionStatus === 'Not Started')
             ? { title: 'Send a ready episode to Production', detail: 'Scene composition and continuity requirements are satisfied.', href: `/projects/${project.id}/episodes/${firstEpisode.episode.id}`, label: 'Review Readiness' }
             : episodeOverview.inProduction > 0
@@ -32,7 +38,7 @@ export function OverviewPage({ project, assetReadiness, episodeOverview }: { pro
   const workflow = [
     { label: 'Story Studio', icon: BookOpen, progress: totalAssets ? Math.round(approvedAssets / totalAssets * 100) : 0, summary: `${approvedAssets} / ${totalAssets} approved assets`, href: `/projects/${project.id}/story-studio` },
     { label: 'Episodes', icon: Tv2, progress: Math.min(100, Math.round(episodeOverview.total / project.episodeCount * 100)), summary: `${episodeOverview.total} / ${project.episodeCount} episodes created`, href: `/projects/${project.id}/episodes` },
-    { label: 'Production', icon: Clapperboard, progress: episodeOverview.total ? Math.round(episodeOverview.completed / episodeOverview.total * 100) : 0, summary: `${episodeOverview.inProduction} active · ${episodeOverview.completed} completed`, href: `/projects/${project.id}/production` },
+    { label: 'Production', icon: Clapperboard, progress: episodeOverview.total ? Math.round(episodeOverview.storyboardsApproved / episodeOverview.total * 100) : 0, summary: `${episodeOverview.storyboardsStarted} started · ${episodeOverview.storyboardsApproved} approved`, href: `/projects/${project.id}/production` },
   ]
 
   const readiness = [
@@ -43,6 +49,8 @@ export function OverviewPage({ project, assetReadiness, episodeOverview }: { pro
     ['Draft episodes', String(episodeOverview.draft), Film],
     ['Ready episodes', String(episodeOverview.ready), TrendingUp],
     ['In production', String(episodeOverview.inProduction), Clapperboard],
+    ['Storyboards started', String(episodeOverview.storyboardsStarted), Clapperboard],
+    ['Storyboards approved', String(episodeOverview.storyboardsApproved), CheckCircle2],
   ] as const
 
   return <div className="flex-1 overflow-y-auto"><div className="mx-auto max-w-6xl space-y-5 p-6">

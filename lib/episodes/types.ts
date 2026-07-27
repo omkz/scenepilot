@@ -24,6 +24,8 @@ export interface EpisodeDto {
   targetDurationSeconds: number
   status: EpisodeStatus
   productionStatus: ProductionStatus
+  storyboardStatus: string
+  storyboardApprovedAt: string | null
   createdAt: string
   updatedAt: string
   archivedAt: string | null

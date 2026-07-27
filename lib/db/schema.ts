@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -129,6 +130,8 @@ export const episodes = pgTable('episodes', {
   targetDurationSeconds: integer('target_duration_seconds').notNull(),
   status: varchar('status', { length: 30 }).default('Draft').notNull(),
   productionStatus: varchar('production_status', { length: 40 }).default('Not Started').notNull(),
+  storyboardStatus: varchar('storyboard_status', { length: 30 }).default('Not Started').notNull(),
+  storyboardApprovedAt: timestamp('storyboard_approved_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
@@ -146,6 +149,7 @@ export const scenes = pgTable('scenes', {
   episodeId: uuid('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
   sceneNumber: integer('scene_number').notNull(),
   position: integer('position').notNull(),
+  nextShotNumber: integer('next_shot_number').default(1).notNull(),
   title: varchar('title', { length: 150 }).notNull(),
   purpose: text('purpose'),
   summary: text('summary'),
@@ -189,6 +193,96 @@ export const sceneCharacters = pgTable('scene_characters', {
   index('scene_characters_costume_id_idx').on(table.costumeId),
 ])
 
+export const shots = pgTable('shots', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  episodeId: uuid('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
+  shotNumber: integer('shot_number').notNull(),
+  position: integer('position').notNull(),
+  title: varchar('title', { length: 150 }).notNull(),
+  description: text('description'),
+  shotType: varchar('shot_type', { length: 40 }).notNull(),
+  cameraAngle: varchar('camera_angle', { length: 40 }).notNull(),
+  cameraMovement: varchar('camera_movement', { length: 40 }).notNull(),
+  lens: varchar('lens', { length: 30 }).notNull(),
+  composition: text('composition'),
+  action: text('action'),
+  dialogueExcerpt: text('dialogue_excerpt'),
+  emotionalIntent: varchar('emotional_intent', { length: 500 }),
+  targetDurationSeconds: integer('target_duration_seconds').notNull(),
+  locationId: uuid('location_id').references(() => locations.id, { onDelete: 'set null' }),
+  timeOfDay: varchar('time_of_day', { length: 30 }).default('Continuous').notNull(),
+  lightingNotes: text('lighting_notes'),
+  generationPrompt: text('generation_prompt'),
+  negativePrompt: text('negative_prompt'),
+  status: varchar('status', { length: 30 }).default('Draft').notNull(),
+  approvalStatus: varchar('approval_status', { length: 20 }).default('Draft').notNull(),
+  compositionLocked: boolean('composition_locked').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
+}, table => [
+  uniqueIndex('shots_scene_number_unique').on(table.sceneId, table.shotNumber),
+  uniqueIndex('shots_scene_position_unique').on(table.sceneId, table.position),
+  index('shots_project_id_idx').on(table.projectId),
+  index('shots_episode_id_idx').on(table.episodeId),
+  index('shots_scene_id_idx').on(table.sceneId),
+  index('shots_location_id_idx').on(table.locationId),
+  index('shots_approval_status_idx').on(table.approvalStatus),
+  index('shots_archived_at_idx').on(table.archivedAt),
+])
+
+export const shotCharacters = pgTable('shot_characters', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  episodeId: uuid('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
+  shotId: uuid('shot_id').notNull().references(() => shots.id, { onDelete: 'cascade' }),
+  characterId: uuid('character_id').notNull().references(() => characters.id, { onDelete: 'restrict' }),
+  costumeId: uuid('costume_id').references(() => costumes.id, { onDelete: 'restrict' }),
+  screenPosition: varchar('screen_position', { length: 30 }),
+  pose: varchar('pose', { length: 500 }),
+  expression: varchar('expression', { length: 500 }),
+  action: text('action'),
+  gazeDirection: varchar('gaze_direction', { length: 300 }),
+  physicalState: varchar('physical_state', { length: 500 }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+}, table => [
+  uniqueIndex('shot_characters_shot_character_unique').on(table.shotId, table.characterId),
+  index('shot_characters_project_id_idx').on(table.projectId),
+  index('shot_characters_episode_id_idx').on(table.episodeId),
+  index('shot_characters_scene_id_idx').on(table.sceneId),
+  index('shot_characters_shot_id_idx').on(table.shotId),
+  index('shot_characters_character_id_idx').on(table.characterId),
+  index('shot_characters_costume_id_idx').on(table.costumeId),
+])
+
+export const storyboardJobs = pgTable('storyboard_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  episodeId: uuid('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
+  shotId: uuid('shot_id').notNull().references(() => shots.id, { onDelete: 'cascade' }),
+  jobType: varchar('job_type', { length: 40 }).notNull(),
+  status: varchar('status', { length: 20 }).default('Queued').notNull(),
+  progress: integer('progress').default(0).notNull(),
+  inputSnapshot: jsonb('input_snapshot').notNull(),
+  outputPlaceholder: jsonb('output_placeholder'),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+  completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+}, table => [
+  index('storyboard_jobs_project_id_idx').on(table.projectId),
+  index('storyboard_jobs_episode_id_idx').on(table.episodeId),
+  index('storyboard_jobs_scene_id_idx').on(table.sceneId),
+  index('storyboard_jobs_shot_id_idx').on(table.shotId),
+  index('storyboard_jobs_status_idx').on(table.status),
+])
+
 export type ProjectRecord = typeof projects.$inferSelect
 export type CharacterRecord = typeof characters.$inferSelect
 export type CostumeRecord = typeof costumes.$inferSelect
@@ -196,3 +290,6 @@ export type LocationRecord = typeof locations.$inferSelect
 export type EpisodeRecord = typeof episodes.$inferSelect
 export type SceneRecord = typeof scenes.$inferSelect
 export type SceneCharacterRecord = typeof sceneCharacters.$inferSelect
+export type ShotRecord = typeof shots.$inferSelect
+export type ShotCharacterRecord = typeof shotCharacters.$inferSelect
+export type StoryboardJobRecord = typeof storyboardJobs.$inferSelect

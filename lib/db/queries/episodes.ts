@@ -14,6 +14,7 @@ function serialize(row: EpisodeRecord): EpisodeDto {
     ...row,
     status: row.status as EpisodeStatus,
     productionStatus: row.productionStatus as ProductionStatus,
+    storyboardApprovedAt: row.storyboardApprovedAt?.toISOString() || null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     archivedAt: row.archivedAt?.toISOString() || null,
@@ -73,6 +74,22 @@ export async function setEpisodeStatuses(
     .set({ ...values, ...(archivedAt ? { archivedAt } : {}), updatedAt: new Date() })
     .where(and(eq(episodes.projectId, projectId), eq(episodes.id, episodeId)))
     .returning()
+  return row ? serialize(row) : null
+}
+
+export async function setStoryboardApproval(
+  projectId: string,
+  episodeId: string,
+  storyboardStatus: string,
+  approved = false,
+) {
+  if (!valid(projectId, episodeId)) return null
+  const [row] = await getDatabase().update(episodes).set({
+    storyboardStatus,
+    storyboardApprovedAt: approved ? new Date() : null,
+    ...(approved ? { productionStatus: 'In Production' } : {}),
+    updatedAt: new Date(),
+  }).where(and(eq(episodes.projectId, projectId), eq(episodes.id, episodeId), isNull(episodes.archivedAt))).returning()
   return row ? serialize(row) : null
 }
 
