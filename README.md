@@ -27,6 +27,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scenepilot
 
 - `pnpm dev` — run the development server.
 - `pnpm lint` — run ESLint.
+- `pnpm test` — run focused Vitest business-logic tests.
 - `pnpm build` — create a production build.
 - `pnpm db:generate` — generate SQL migrations from `lib/db/schema.ts`.
 - `pnpm db:migrate` — apply pending migrations.

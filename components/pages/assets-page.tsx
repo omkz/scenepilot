@@ -67,6 +67,21 @@ const tabs: Array<{ value: StoryStudioTab; label: string; icon: typeof Users }> 
 
 const filterClassName = 'h-8 rounded-lg border border-border bg-card px-2.5 text-xs outline-none'
 
+function deletionErrorMessage(error?: string) {
+  if (error === 'asset-not-found') return 'The asset no longer exists in this project.'
+  if (!error?.startsWith('asset-in-use:')) return null
+  const [, type, costumeValue, sceneValue, shotValue] = error.split(':')
+  const costumes = Number(costumeValue)
+  const scenes = Number(sceneValue)
+  const shots = Number(shotValue)
+  const usages = [
+    costumes > 0 && `${costumes} costume${costumes === 1 ? '' : 's'}`,
+    scenes > 0 && `${scenes} scene${scenes === 1 ? '' : 's'}`,
+    shots > 0 && `${shots} shot${shots === 1 ? '' : 's'}`,
+  ].filter(Boolean)
+  return `This ${type} cannot be deleted because it is used by ${usages.join(', ')}. Archive it instead.`
+}
+
 function tabPath(projectId: string, tab: StoryStudioTab, archived = false) {
   const params = new URLSearchParams({ tab })
   if (archived) params.set('archived', '1')
@@ -101,13 +116,11 @@ function AssetWorkflowActions({
   type,
   asset,
   edit,
-  blockedDelete,
 }: {
   projectId: string
   type: AssetType
   asset: CharacterDto | CostumeDto | LocationDto
   edit?: React.ReactNode
-  blockedDelete?: boolean
 }) {
   const status = asset.approvalStatus
   const statusActions: AssetStatus[] = status === 'Draft'
@@ -131,7 +144,6 @@ function AssetWorkflowActions({
           assetId={asset.id}
           assetName={asset.name}
           type={type}
-          blocked={blockedDelete}
         />
       </div>
     )
@@ -174,7 +186,6 @@ function AssetWorkflowActions({
         assetId={asset.id}
         assetName={asset.name}
         type={type}
-        blocked={blockedDelete}
       />
     </div>
   )
@@ -222,6 +233,7 @@ export function AssetsPage({
   saved,
   error,
 }: AssetsPageProps) {
+  const deleteError = deletionErrorMessage(error)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [secondaryFilter, setSecondaryFilter] = useState('')
@@ -282,9 +294,9 @@ export function AssetsPage({
             Asset saved to the project.
           </div>
         )}
-        {error === 'character-has-costumes' && (
+        {deleteError && (
           <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-2.5 text-xs text-red-400">
-            This character has costumes and cannot be permanently deleted. Archive the character instead.
+            {deleteError}
           </div>
         )}
 
@@ -378,7 +390,6 @@ export function AssetsPage({
                     type="character"
                     asset={character}
                     edit={!archived ? <CharacterFormSheet projectId={projectId} character={character} /> : undefined}
-                    blockedDelete={character.costumeCount > 0}
                   />
                 </article>
               ))}

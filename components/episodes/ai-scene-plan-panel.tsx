@@ -124,12 +124,14 @@ function ApplyConfirmation({
   episodeId,
   generationId,
   mode,
+  scenePlan,
   children,
 }: {
   projectId: string
   episodeId: string
   generationId: string
   mode: 'append' | 'replace'
+  scenePlan: string
   children: React.ReactNode
 }) {
   const replacing = mode === 'replace'
@@ -147,13 +149,37 @@ function ApplyConfirmation({
       <DialogFooter>
         <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
         <form action={applyScenePlanAction.bind(null, projectId, episodeId, generationId, mode)}>
-          <Button type="submit" variant={replacing ? 'destructive' : 'default'}>
-            {replacing ? 'Archive and Replace' : 'Append Scenes'}
-          </Button>
+          <input type="hidden" name="scenePlan" value={scenePlan} />
+          <ApplyPendingButton mode={mode} />
         </form>
       </DialogFooter>
     </DialogContent>
   </Dialog>
+}
+
+function ApplyPendingButton({ mode, creating = false }: {
+  mode: 'append' | 'replace'
+  creating?: boolean
+}) {
+  const { pending } = useFormStatus()
+  const label = creating
+    ? 'Create Scenes'
+    : mode === 'replace'
+      ? 'Archive and Replace'
+      : 'Append Scenes'
+  const pendingLabel = creating
+    ? 'Saving and creating…'
+    : mode === 'replace'
+      ? 'Saving and replacing…'
+      : 'Saving and appending…'
+  return <Button
+    type="submit"
+    variant={mode === 'replace' ? 'destructive' : 'default'}
+    disabled={pending}
+  >
+    {pending && <LoaderCircle size={12} className="animate-spin" />}
+    {pending ? pendingLabel : label}
+  </Button>
 }
 
 export function AIScenePlanPanel({
@@ -268,7 +294,7 @@ export function AIScenePlanPanel({
       {aiError && <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-400">{aiErrors[aiError] || aiErrors.AI_UNKNOWN_ERROR}</div>}
       {scenePlanError && <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-400">{applyErrors[scenePlanError] || applyErrors.apply_failed}</div>}
       {notice === 'scene-plan-saved' && <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 p-3 text-xs text-green-400"><CheckCircle2 size={12} />Scene-plan edits saved and revalidated.</div>}
-      {notice === 'scene-plan-applied' && <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 p-3 text-xs text-green-400"><CheckCircle2 size={12} />Scene plan applied successfully. Continuity results have been refreshed.</div>}
+      {notice === 'scene-plan-saved-applied' && <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 p-3 text-xs text-green-400"><CheckCircle2 size={12} />Scene plan saved and applied successfully. Continuity results have been refreshed.</div>}
     </section>
 
     {selectedGeneration && selectedScenePlan && draft && <section className="rounded-xl border bg-card p-5">
@@ -350,10 +376,10 @@ export function AIScenePlanPanel({
       </form>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        {selectedGeneration.status === 'Completed' && context.existingScenes === 0 && <form action={applyScenePlanAction.bind(null, projectId, episodeId, selectedGeneration.id, 'append')}><Button type="submit" className="bg-amber-500 text-black hover:bg-amber-400">Create Scenes</Button></form>}
+        {selectedGeneration.status === 'Completed' && context.existingScenes === 0 && <form action={applyScenePlanAction.bind(null, projectId, episodeId, selectedGeneration.id, 'append')}><input type="hidden" name="scenePlan" value={JSON.stringify(draft)} /><ApplyPendingButton mode="append" creating /></form>}
         {selectedGeneration.status === 'Completed' && context.existingScenes > 0 && <>
-          <ApplyConfirmation projectId={projectId} episodeId={episodeId} generationId={selectedGeneration.id} mode="append">Apply as New Scenes</ApplyConfirmation>
-          <ApplyConfirmation projectId={projectId} episodeId={episodeId} generationId={selectedGeneration.id} mode="replace">Replace Existing Scenes</ApplyConfirmation>
+          <ApplyConfirmation projectId={projectId} episodeId={episodeId} generationId={selectedGeneration.id} mode="append" scenePlan={JSON.stringify(draft)}>Apply as New Scenes</ApplyConfirmation>
+          <ApplyConfirmation projectId={projectId} episodeId={episodeId} generationId={selectedGeneration.id} mode="replace" scenePlan={JSON.stringify(draft)}>Replace Existing Scenes</ApplyConfirmation>
         </>}
         {selectedGeneration.status === 'Applied' && <Button disabled><CheckCircle2 size={11} /> Applied</Button>}
         <form action={generateScenePlanAction.bind(null, projectId, episodeId)}><PendingButton disabled={!canGenerate} label="Generate Again" pendingLabel="Generating…" variant="outline" /></form>

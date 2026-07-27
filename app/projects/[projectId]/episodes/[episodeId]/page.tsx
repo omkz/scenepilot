@@ -66,7 +66,7 @@ export default async function EpisodeDetailPage({
   const outlineProviderStatus = getAIProviderConfigurationStatus(AI_TASK_CONFIG.episodeOutline.provider)
   const scenePlanProviderStatus = getAIProviderConfigurationStatus(AI_TASK_CONFIG.scenePlan.provider)
   const activeTab = EPISODE_TABS.includes(query.tab as EpisodeTab) ? query.tab as EpisodeTab : 'overview'
-  return <EpisodeDetail projectId={projectId} episode={episode} activeTab={activeTab} scenes={scenes} archivedScenes={archivedScenes} assignments={assignments} characters={characters} costumes={costumes} locations={locations} issues={issues} readiness={calculateEpisodeReadiness(episode, scenes, assignments, issues)} error={query.error} aiOutline={{
+  return <EpisodeDetail projectId={projectId} episode={episode} activeTab={activeTab} scenes={scenes} archivedScenes={archivedScenes} assignments={assignments} characters={characters} costumes={costumes} locations={locations} issues={issues} readiness={calculateEpisodeReadiness(episode, scenes, assignments, issues)} error={query.error} selectedScene={query.selectedScene} aiOutline={{
     context: {
       configured: outlineProviderStatus.configured,
       approvedCharacters: approvedCharacters.length,

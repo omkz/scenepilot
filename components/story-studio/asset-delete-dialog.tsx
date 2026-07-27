@@ -19,10 +19,9 @@ interface AssetDeleteDialogProps {
   assetId: string
   assetName: string
   type: 'character' | 'costume' | 'location'
-  blocked?: boolean
 }
 
-export function AssetDeleteDialog({ projectId, assetId, assetName, type, blocked = false }: AssetDeleteDialogProps) {
+export function AssetDeleteDialog({ projectId, assetId, assetName, type }: AssetDeleteDialogProps) {
   const action = deleteAssetAction.bind(null, projectId, type, assetId)
 
   return (
@@ -33,20 +32,16 @@ export function AssetDeleteDialog({ projectId, assetId, assetName, type, blocked
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{blocked ? `Archive “${assetName}” instead?` : `Delete “${assetName}”?`}</DialogTitle>
+          <DialogTitle>Delete “{assetName}”?</DialogTitle>
           <DialogDescription>
-            {blocked
-              ? 'This character has costume records and cannot be permanently deleted. Archive the character to preserve those relationships.'
-              : 'This permanently deletes the asset record. Asset codes are never reused. This action cannot be undone.'}
+            This permanently deletes the asset record. In-use assets are protected and should be archived instead. Asset codes are never reused.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-          {!blocked && (
-            <form action={action}>
-              <Button type="submit" variant="destructive">Delete permanently</Button>
-            </form>
-          )}
+          <form action={action}>
+            <Button type="submit" variant="destructive">Delete permanently</Button>
+          </form>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,0 +1,2 @@
+DROP INDEX "scenes_episode_position_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "scenes_episode_active_position_unique" ON "scenes" USING btree ("episode_id","position") WHERE "scenes"."archived_at" is null;

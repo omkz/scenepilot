@@ -4,9 +4,7 @@ import { and, eq, isNull, max, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { sanitizeScenePlan } from '@/lib/ai/sanitizers/scene-plan'
 import {
-  persistedScenePlanSchema,
   scenePlanSchema,
-  type PersistedScenePlan,
   type ScenePlan,
 } from '@/lib/ai/schemas/scene-plan'
 import { AI_TASK_TYPES } from '@/lib/ai/task-types'
@@ -17,27 +15,12 @@ import {
   costumes,
   episodes,
   locations,
+  projects,
   sceneCharacters,
   scenes,
 } from '@/lib/db/schema'
 
 const valid = (...ids: string[]) => ids.every(id => z.uuid().safeParse(id).success)
-
-function planWithoutWarnings(plan: PersistedScenePlan): ScenePlan {
-  const { warnings: _warnings, ...scenePlan } = plan
-  return scenePlan
-}
-
-function referenceSnapshot(plan: ScenePlan) {
-  return plan.scenes.map(scene => ({
-    temporaryId: scene.temporaryId,
-    locationId: scene.suggestedLocationId,
-    characters: scene.characterAssignments.map(item => ({
-      characterId: item.characterId,
-      costumeId: item.costumeId,
-    })),
-  }))
-}
 
 export async function updateScenePlanGenerationOutput({
   projectId,
@@ -56,6 +39,10 @@ export async function updateScenePlanGenerationOutput({
   return getDatabase().transaction(async transaction => {
     const [[episode], approvedCharacters, approvedCostumes, approvedLocations] = await Promise.all([
       transaction.select({ targetDurationSeconds: episodes.targetDurationSeconds }).from(episodes)
+        .innerJoin(projects, and(
+          eq(projects.id, projectId),
+          isNull(projects.archivedAt),
+        ))
         .where(and(
           eq(episodes.projectId, projectId),
           eq(episodes.id, episodeId),
@@ -110,24 +97,34 @@ export type ScenePlanApplyResult =
   | { ok: true; createdSceneIds: string[] }
   | { ok: false; reason: 'not_found' | 'already_applied' | 'invalid_output' | 'assets_changed' }
 
-export async function applyScenePlanGeneration({
+export async function saveAndApplyScenePlanGeneration({
   projectId,
   episodeId,
   generationId,
   mode,
+  input,
 }: {
   projectId: string
   episodeId: string
   generationId: string
   mode: ScenePlanApplyMode
+  input: unknown
 }): Promise<ScenePlanApplyResult> {
   if (!valid(projectId, episodeId, generationId)) return { ok: false, reason: 'not_found' }
+  const parsedInput = scenePlanSchema.safeParse(input)
+  if (!parsedInput.success) return { ok: false, reason: 'invalid_output' }
   return getDatabase().transaction(async transaction => {
-    const [episode] = await transaction.select().from(episodes).where(and(
+    const [episodeRow] = await transaction.select({ episode: episodes }).from(episodes)
+      .innerJoin(projects, and(
+        eq(projects.id, projectId),
+        isNull(projects.archivedAt),
+      ))
+      .where(and(
       eq(episodes.projectId, projectId),
       eq(episodes.id, episodeId),
       isNull(episodes.archivedAt),
     )).limit(1).for('update')
+    const episode = episodeRow?.episode
     if (!episode) return { ok: false, reason: 'not_found' } as const
 
     const [generation] = await transaction.select().from(aiGenerations).where(and(
@@ -140,8 +137,6 @@ export async function applyScenePlanGeneration({
     if (generation.status === 'Applied') return { ok: false, reason: 'already_applied' } as const
     if (generation.status !== 'Completed') return { ok: false, reason: 'invalid_output' } as const
 
-    const parsed = persistedScenePlanSchema.safeParse(generation.output)
-    if (!parsed.success) return { ok: false, reason: 'invalid_output' } as const
     const [approvedCharacters, approvedCostumes, approvedLocations] = await Promise.all([
       transaction.select({ id: characters.id }).from(characters).where(and(
         eq(characters.projectId, projectId),
@@ -163,15 +158,11 @@ export async function applyScenePlanGeneration({
         isNull(locations.archivedAt),
       )),
     ])
-    const sourcePlan = planWithoutWarnings(parsed.data)
-    const sanitized = sanitizeScenePlan(sourcePlan, {
+    const sanitized = sanitizeScenePlan(parsedInput.data, {
       characters: approvedCharacters,
       costumes: approvedCostumes,
       locations: approvedLocations,
     }, episode.targetDurationSeconds)
-    if (JSON.stringify(referenceSnapshot(sourcePlan)) !== JSON.stringify(referenceSnapshot(sanitized))) {
-      return { ok: false, reason: 'assets_changed' } as const
-    }
 
     const now = new Date()
     if (mode === 'replace') {
@@ -190,16 +181,19 @@ export async function applyScenePlanGeneration({
     }).from(scenes).where(and(
       eq(scenes.projectId, projectId),
       eq(scenes.episodeId, episodeId),
+      isNull(scenes.archivedAt),
     ))
     const firstSceneNumber = episode.nextSceneNumber
     const firstPosition = Number(positionResult.value || 0) + 1
-    await transaction.update(episodes).set({
+    const [updatedEpisode] = await transaction.update(episodes).set({
       nextSceneNumber: sql`${episodes.nextSceneNumber} + ${sanitized.scenes.length}`,
       updatedAt: now,
     }).where(and(
       eq(episodes.projectId, projectId),
       eq(episodes.id, episodeId),
-    ))
+      isNull(episodes.archivedAt),
+    )).returning({ id: episodes.id })
+    if (!updatedEpisode) return { ok: false, reason: 'not_found' } as const
 
     const createdSceneIds: string[] = []
     for (const [index, scene] of sanitized.scenes.entries()) {
@@ -234,7 +228,7 @@ export async function applyScenePlanGeneration({
       }
     }
 
-    await transaction.update(aiGenerations).set({
+    const [updatedGeneration] = await transaction.update(aiGenerations).set({
       output: sanitized,
       status: 'Applied',
       appliedAt: now,
@@ -245,7 +239,8 @@ export async function applyScenePlanGeneration({
       eq(aiGenerations.episodeId, episodeId),
       eq(aiGenerations.id, generationId),
       eq(aiGenerations.status, 'Completed'),
-    ))
+    )).returning({ id: aiGenerations.id })
+    if (!updatedGeneration) return { ok: false, reason: 'already_applied' } as const
     return { ok: true, createdSceneIds }
   })
 }

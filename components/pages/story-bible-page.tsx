@@ -90,7 +90,7 @@ export function StoryBiblePage({ embedded = false }: StoryBiblePageProps) {
           <div className="flex items-start gap-3 bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
             <Sparkles size={13} className="text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <div className="text-xs font-semibold text-foreground mb-1">Showrunner AI</div>
+              <div className="text-xs font-semibold text-foreground mb-1">Continuity note</div>
               <p className="text-xs text-muted-foreground leading-relaxed">Episode 4 currently lets Maren recognize MERIDIAN protocol details before Tobias reveals them. Review the knowledge timeline before approving the script.</p>
             </div>
           </div>

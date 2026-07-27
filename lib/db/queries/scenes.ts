@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { and, count, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, isNotNull, isNull, max, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDatabase } from '@/lib/db'
 import { episodes, locations, sceneCharacters, scenes, type SceneRecord } from '@/lib/db/schema'
@@ -126,10 +126,41 @@ export function archiveScene(projectId: string, episodeId: string, sceneId: stri
 
 export async function restoreScene(projectId: string, episodeId: string, sceneId: string) {
   if (!valid(projectId, episodeId, sceneId)) return null
-  const [row] = await getDatabase().update(scenes).set({ status: 'Draft', archivedAt: null, updatedAt: new Date() })
-    .where(and(eq(scenes.projectId, projectId), eq(scenes.episodeId, episodeId), eq(scenes.id, sceneId), isNotNull(scenes.archivedAt)))
-    .returning()
-  return row ? serialize(row, null) : null
+  return getDatabase().transaction(async transaction => {
+    const [episode] = await transaction.select({ id: episodes.id }).from(episodes)
+      .where(and(
+        eq(episodes.projectId, projectId),
+        eq(episodes.id, episodeId),
+        isNull(episodes.archivedAt),
+      )).limit(1).for('update')
+    if (!episode) return null
+    const [archived] = await transaction.select({ id: scenes.id }).from(scenes)
+      .where(and(
+        eq(scenes.projectId, projectId),
+        eq(scenes.episodeId, episodeId),
+        eq(scenes.id, sceneId),
+        isNotNull(scenes.archivedAt),
+      )).limit(1).for('update')
+    if (!archived) return null
+    const [lastPosition] = await transaction.select({ value: max(scenes.position) }).from(scenes)
+      .where(and(
+        eq(scenes.projectId, projectId),
+        eq(scenes.episodeId, episodeId),
+        isNull(scenes.archivedAt),
+      ))
+    const [row] = await transaction.update(scenes).set({
+      status: 'Draft',
+      archivedAt: null,
+      position: Number(lastPosition.value || 0) + 1,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(scenes.projectId, projectId),
+      eq(scenes.episodeId, episodeId),
+      eq(scenes.id, sceneId),
+      isNotNull(scenes.archivedAt),
+    )).returning()
+    return row ? serialize(row, null) : null
+  })
 }
 
 export async function deleteScene(projectId: string, episodeId: string, sceneId: string) {

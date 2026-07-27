@@ -164,7 +164,9 @@ export const scenes = pgTable('scenes', {
   archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
 }, table => [
   uniqueIndex('scenes_episode_number_unique').on(table.episodeId, table.sceneNumber),
-  uniqueIndex('scenes_episode_position_unique').on(table.episodeId, table.position),
+  uniqueIndex('scenes_episode_active_position_unique')
+    .on(table.episodeId, table.position)
+    .where(sql`${table.archivedAt} is null`),
   index('scenes_project_id_idx').on(table.projectId),
   index('scenes_episode_id_idx').on(table.episodeId),
   index('scenes_location_id_idx').on(table.locationId),

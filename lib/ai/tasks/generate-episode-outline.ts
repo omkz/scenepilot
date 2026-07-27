@@ -86,7 +86,7 @@ export async function generateEpisodeOutline({ projectId, episodeId }: { project
     inputSnapshot,
   })
   if (!generation) throw new ScenePilotAIError('AI_CONTEXT_ERROR', 'Unable to create a scoped generation record.')
-  await markAIGenerationRunning(projectId, generation.id)
+  await markAIGenerationRunning(projectId, episodeId, generation.id)
   const startedAt = performance.now()
 
   try {
@@ -118,7 +118,7 @@ export async function generateEpisodeOutline({ projectId, episodeId }: { project
       new Set(characters.map(item => item.id)),
       new Set(locations.map(item => item.id)),
     )
-    const completed = await completeAIGeneration(projectId, generation.id, result, output)
+    const completed = await completeAIGeneration(projectId, episodeId, generation.id, result, output)
     if (!completed) throw new ScenePilotAIError('AI_UNKNOWN_ERROR', 'Unable to persist completed generation.')
     console.info('ai_generation', {
       generationId: generation.id,
@@ -133,7 +133,7 @@ export async function generateEpisodeOutline({ projectId, episodeId }: { project
   } catch (error) {
     const normalized = normalizeAIError(error)
     const durationMs = Math.round(performance.now() - startedAt)
-    await failAIGeneration(projectId, generation.id, {
+    await failAIGeneration(projectId, episodeId, generation.id, {
       code: normalized.code,
       message: normalized.userMessage,
       durationMs,

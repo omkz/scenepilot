@@ -34,6 +34,7 @@ import {
   locationInputSchema,
 } from '@/lib/assets/validation'
 import type { StoryStudioTab } from '@/lib/assets/types'
+import type { AssetDeleteResult } from '@/lib/assets/types'
 
 export interface AssetActionState {
   message?: string
@@ -108,6 +109,18 @@ function studioPath(
   if (options?.error) params.set('error', options.error)
   if (options?.notice) params.set('notice', options.notice)
   return `/projects/${projectId}/story-studio?${params}`
+}
+
+function deletionError(type: 'character' | 'costume' | 'location', result: AssetDeleteResult) {
+  if (result.deleted) return null
+  if (result.reason === 'not-found') return 'asset-not-found'
+  return [
+    'asset-in-use',
+    type,
+    result.usage?.costumes || 0,
+    result.usage?.scenes || 0,
+    result.usage?.shots || 0,
+  ].join(':')
 }
 
 function revalidateAssets(projectId: string) {
@@ -283,15 +296,17 @@ export async function deleteAssetAction(
   type: 'character' | 'costume' | 'location',
   assetId: string,
 ) {
-  if (type === 'character') {
-    const result = await deleteCharacter(projectId, assetId)
-    revalidateAssets(projectId)
-    if (!result.deleted && result.reason === 'has-costumes') {
-      redirect(studioPath(projectId, 'characters', { error: 'character-has-costumes' }))
-    }
+  const validId = z.uuid().safeParse(assetId)
+  if (!validId.success || !z.uuid().safeParse(projectId).success) {
+    redirect(studioPath(projectId, tabForType(type), { error: 'asset-not-found' }))
   }
-  if (type === 'costume') await deleteCostume(projectId, assetId)
-  if (type === 'location') await deleteLocation(projectId, assetId)
+  const result = type === 'character'
+    ? await deleteCharacter(projectId, assetId)
+    : type === 'costume'
+      ? await deleteCostume(projectId, assetId)
+      : await deleteLocation(projectId, assetId)
   revalidateAssets(projectId)
+  const error = deletionError(type, result)
+  if (error) redirect(studioPath(projectId, tabForType(type), { error }))
   redirect(studioPath(projectId, tabForType(type), { notice: 'deleted' }))
 }

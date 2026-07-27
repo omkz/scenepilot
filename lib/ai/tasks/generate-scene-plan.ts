@@ -103,7 +103,7 @@ export async function generateEpisodeScenePlan({
       'Unable to create a scoped generation record.',
     )
   }
-  await markAIGenerationRunning(projectId, generation.id)
+  await markAIGenerationRunning(projectId, episodeId, generation.id)
   const startedAt = performance.now()
 
   try {
@@ -138,6 +138,7 @@ export async function generateEpisodeScenePlan({
     }, episode.targetDurationSeconds)
     const completed = await completeAIGeneration(
       projectId,
+      episodeId,
       generation.id,
       result,
       output,
@@ -161,7 +162,7 @@ export async function generateEpisodeScenePlan({
   } catch (error) {
     const normalized = normalizeAIError(error)
     const durationMs = Math.round(performance.now() - startedAt)
-    await failAIGeneration(projectId, generation.id, {
+    await failAIGeneration(projectId, episodeId, generation.id, {
       code: normalized.code,
       message: normalized.userMessage,
       durationMs,

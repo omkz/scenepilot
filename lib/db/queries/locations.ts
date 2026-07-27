@@ -1,10 +1,10 @@
 import 'server-only'
 
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm'
+import { and, count, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDatabase } from '@/lib/db'
-import { locations, projects, type LocationRecord } from '@/lib/db/schema'
-import type { AssetStatus, LocationDto } from '@/lib/assets/types'
+import { locations, projects, scenes, shots, type LocationRecord } from '@/lib/db/schema'
+import type { AssetDeleteResult, AssetStatus, AssetUsage, LocationDto } from '@/lib/assets/types'
 import type { LocationInput } from '@/lib/assets/validation'
 
 function validIds(...ids: string[]) {
@@ -88,11 +88,39 @@ export function restoreLocation(projectId: string, locationId: string) {
   return setLocationStatus(projectId, locationId, 'Draft')
 }
 
-export async function deleteLocation(projectId: string, locationId: string) {
-  if (!validIds(projectId, locationId)) return null
-  const [row] = await getDatabase()
-    .delete(locations)
-    .where(and(eq(locations.projectId, projectId), eq(locations.id, locationId)))
-    .returning({ id: locations.id })
-  return row || null
+export async function deleteLocation(projectId: string, locationId: string): Promise<AssetDeleteResult> {
+  if (!validIds(projectId, locationId)) return { deleted: false, reason: 'not-found' }
+  let usage: AssetUsage = {}
+  try {
+    return await getDatabase().transaction(async transaction => {
+      const [target] = await transaction.select({ id: locations.id }).from(locations)
+        .where(and(eq(locations.projectId, projectId), eq(locations.id, locationId)))
+        .limit(1).for('update')
+      if (!target) return { deleted: false, reason: 'not-found' } as const
+      const [sceneUsage, shotUsage] = await Promise.all([
+        transaction.select({ value: count(scenes.id) }).from(scenes)
+          .where(and(eq(scenes.projectId, projectId), eq(scenes.locationId, locationId))),
+        transaction.select({ value: count(shots.id) }).from(shots)
+          .where(and(eq(shots.projectId, projectId), eq(shots.locationId, locationId))),
+      ])
+      usage = {
+        scenes: Number(sceneUsage[0].value),
+        shots: Number(shotUsage[0].value),
+      }
+      if (Object.values(usage).some(value => value > 0)) {
+        return { deleted: false, reason: 'in-use', usage } as const
+      }
+      const [row] = await transaction.delete(locations)
+        .where(and(eq(locations.projectId, projectId), eq(locations.id, locationId)))
+        .returning({ id: locations.id })
+      return row
+        ? { deleted: true } as const
+        : { deleted: false, reason: 'not-found' } as const
+    })
+  } catch (error) {
+    if ((error as { code?: string }).code === '23503') {
+      return { deleted: false, reason: 'in-use', usage }
+    }
+    throw error
+  }
 }

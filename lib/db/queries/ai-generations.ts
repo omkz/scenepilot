@@ -45,25 +45,31 @@ export async function createAIGeneration(input: {
   return serialize(row)
 }
 
-export async function markAIGenerationRunning(projectId: string, generationId: string) {
-  if (!valid(projectId, generationId)) return null
+export async function markAIGenerationRunning(projectId: string, episodeId: string, generationId: string) {
+  if (!valid(projectId, episodeId, generationId)) return null
   const [row] = await getDatabase().update(aiGenerations).set({
     status: 'Running',
     startedAt: new Date(),
     errorCode: null,
     errorMessage: null,
     updatedAt: new Date(),
-  }).where(and(eq(aiGenerations.projectId, projectId), eq(aiGenerations.id, generationId))).returning()
+  }).where(and(
+    eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
+    eq(aiGenerations.id, generationId),
+    eq(aiGenerations.status, 'Queued'),
+  )).returning()
   return row ? serialize(row) : null
 }
 
 export async function completeAIGeneration<T>(
   projectId: string,
+  episodeId: string,
   generationId: string,
   result: ScenePilotAIResult<T>,
   output: T,
 ) {
-  if (!valid(projectId, generationId)) return null
+  if (!valid(projectId, episodeId, generationId)) return null
   const [row] = await getDatabase().update(aiGenerations).set({
     status: 'Completed',
     output,
@@ -74,16 +80,22 @@ export async function completeAIGeneration<T>(
     durationMs: result.durationMs,
     completedAt: new Date(),
     updatedAt: new Date(),
-  }).where(and(eq(aiGenerations.projectId, projectId), eq(aiGenerations.id, generationId))).returning()
+  }).where(and(
+    eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
+    eq(aiGenerations.id, generationId),
+    eq(aiGenerations.status, 'Running'),
+  )).returning()
   return row ? serialize(row) : null
 }
 
 export async function failAIGeneration(
   projectId: string,
+  episodeId: string,
   generationId: string,
   error: { code: AIErrorCode; message: string; durationMs?: number },
 ) {
-  if (!valid(projectId, generationId)) return null
+  if (!valid(projectId, episodeId, generationId)) return null
   const [row] = await getDatabase().update(aiGenerations).set({
     status: 'Failed',
     errorCode: error.code,
@@ -91,7 +103,12 @@ export async function failAIGeneration(
     durationMs: error.durationMs,
     completedAt: new Date(),
     updatedAt: new Date(),
-  }).where(and(eq(aiGenerations.projectId, projectId), eq(aiGenerations.id, generationId))).returning()
+  }).where(and(
+    eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
+    eq(aiGenerations.id, generationId),
+    eq(aiGenerations.status, 'Running'),
+  )).returning()
   return row ? serialize(row) : null
 }
 
@@ -118,14 +135,15 @@ export async function listEpisodeGenerations(projectId: string, episodeId: strin
   return rows.map(serialize)
 }
 
-export async function markAIGenerationApplied(projectId: string, generationId: string) {
-  if (!valid(projectId, generationId)) return null
+export async function markAIGenerationApplied(projectId: string, episodeId: string, generationId: string) {
+  if (!valid(projectId, episodeId, generationId)) return null
   const [row] = await getDatabase().update(aiGenerations).set({
     status: 'Applied',
     appliedAt: new Date(),
     updatedAt: new Date(),
   }).where(and(
     eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
     eq(aiGenerations.id, generationId),
     eq(aiGenerations.status, 'Completed'),
   )).returning()

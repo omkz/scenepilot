@@ -43,6 +43,13 @@
       "when": 1785169492345,
       "tag": "0005_furry_nitro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785173360630,
+      "tag": "0006_moaning_ser_duncan",
+      "breakpoints": true
     }
   ]
 }

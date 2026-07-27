@@ -436,10 +436,3 @@ export const ACTIVITY_FEED = [
   { id: 'ACT-005', type: 'exported', icon: 'upload', label: 'Video exported', detail: 'EP-001 — Final render', time: '1d ago' },
   { id: 'ACT-006', type: 'resolved', icon: 'shield', label: 'Continuity issue resolved', detail: 'Vael costume mismatch — EP-001', time: '1d ago' },
 ]
-
-export const AI_SUGGESTIONS = [
-  { id: 'AI-001', message: 'Two recurring characters do not have approved full-body reference images.', action: 'Review Characters', href: 'story-studio' },
-  { id: 'AI-002', message: 'Yuna Park still needs an approved recurring costume for Episodes 2 and 4.', action: 'Review Costumes', href: 'story-studio' },
-  { id: 'AI-003', message: 'Maren\'s costume changes between Scene 2 and Scene 3 of Episode 1 without a story reason.', action: 'Review Continuity', href: 'episodes' },
-  { id: 'AI-004', message: 'Episode 1 is ready for storyboard generation with approved character, costume, and location references.', action: 'Open Storyboards', href: 'production' },
-]

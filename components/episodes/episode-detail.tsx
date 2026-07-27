@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
 import { AlertTriangle, Archive, ArrowDown, ArrowUp, CheckCircle2, MapPin, RefreshCw, Send, Trash2 } from 'lucide-react'
 import {
   archiveSceneAction,
@@ -62,6 +62,7 @@ export function EpisodeDetail({
   issues,
   readiness,
   error,
+  selectedScene,
   aiOutline,
   aiScenePlan,
 }: {
@@ -77,6 +78,7 @@ export function EpisodeDetail({
   issues: ContinuityIssue[]
   readiness: EpisodeReadiness
   error?: string
+  selectedScene?: string
   aiOutline: {
     context: AIOutlineContext
     generations: AIGenerationDto[]
@@ -95,6 +97,19 @@ export function EpisodeDetail({
     notice?: string
   }
 }) {
+  useEffect(() => {
+    if (activeTab !== 'scenes' || !selectedScene) return
+    const frame = window.requestAnimationFrame(() => {
+      const element = document.getElementById(`scene-${selectedScene}`)
+      if (!element) return
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const url = new URL(window.location.href)
+      url.searchParams.delete('selectedScene')
+      window.history.replaceState(window.history.state, '', url)
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [activeTab, selectedScene])
+
   const uniqueCharacters = new Set(assignments.map(item => item.characterId)).size
   const uniqueLocations = new Set(scenes.map(scene => scene.locationId).filter(Boolean)).size
   const sceneName = new Map(scenes.map(scene => [scene.id, scene.title]))
@@ -141,7 +156,14 @@ export function EpisodeDetail({
       <main className="space-y-4">{scenes.map(scene => {
         const sceneAssignments = assignments.filter(item => item.sceneId === scene.id)
         const sceneIssues = issues.filter(item => item.sceneId === scene.id)
-        return <article key={scene.id} className="rounded-xl border bg-card p-4">
+        return <article
+          key={scene.id}
+          id={`scene-${scene.id}`}
+          className={cn(
+            'rounded-xl border bg-card p-4 transition-colors',
+            selectedScene === scene.id && 'border-amber-400/60 bg-amber-500/5',
+          )}
+        >
           <div className="flex items-start justify-between gap-3"><div><div className="text-[10px] text-amber-400">Scene {scene.sceneNumber} · Position {scene.position}</div><h2 className="text-sm font-semibold">{scene.title}</h2><div className="mt-1 text-[11px] text-muted-foreground">{scene.emotionalTone || 'No emotional tone'} · {scene.timeOfDay} · {scene.targetDurationSeconds}s</div></div><div className="flex"><SceneFormSheet projectId={projectId} episodeId={episode.id} locations={locations} scene={scene} /><form action={archiveSceneAction.bind(null, projectId, episode.id, scene.id)}><Button type="submit" size="sm" variant="ghost" title="Archive scene"><Archive size={11} /></Button></form><SceneDeleteDialog projectId={projectId} episodeId={episode.id} scene={scene} /></div></div>
           <div className="mt-3 rounded-lg bg-muted/30 p-3 text-xs"><MapPin size={11} className="mr-1 inline" />{scene.locationName || 'No location assigned'} {scene.locationStatus ? `· ${scene.locationStatus}` : ''}</div>
           <div className="mt-4 flex items-center justify-between"><h3 className="text-xs font-semibold">Characters</h3>{characters.length > 0 && <AssignmentFormSheet projectId={projectId} episodeId={episode.id} sceneId={scene.id} characters={characters} costumes={costumes} />}</div>

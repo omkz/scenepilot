@@ -38,8 +38,12 @@ export const SECTION_META: Record<WorkspaceRoute, { label: string }> = {
 }
 
 export function getWorkspaceRoute(pathname: string): WorkspaceRoute {
-  const segment = pathname.split('/').filter(Boolean).at(-1)
-  if (segment && segment in SECTION_META) return segment as WorkspaceRoute
+  const segments = pathname.split('/').filter(Boolean)
+  const projectsIndex = segments.indexOf('projects')
+  const workspaceSegment = projectsIndex >= 0 ? segments[projectsIndex + 2] : undefined
+  if (workspaceSegment && workspaceSegment in SECTION_META) {
+    return workspaceSegment as WorkspaceRoute
+  }
   return 'overview'
 }
 

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { z } from 'zod'
 import { normalizeAIError } from '@/lib/ai/errors'
 import { persistedEpisodeOutlineSchema } from '@/lib/ai/schemas/episode-outline'
 import { scenePlanSchema } from '@/lib/ai/schemas/scene-plan'
@@ -11,7 +12,7 @@ import { generateEpisodeScenePlan } from '@/lib/ai/tasks/generate-scene-plan'
 import { applyEpisodeOutlineGeneration, getAIGeneration } from '@/lib/db/queries/ai-generations'
 import { getEpisode } from '@/lib/db/queries/episodes'
 import {
-  applyScenePlanGeneration,
+  saveAndApplyScenePlanGeneration,
   updateScenePlanGenerationOutput,
   type ScenePlanApplyMode,
 } from '@/lib/db/queries/scene-plan-generations'
@@ -129,19 +130,32 @@ export async function applyScenePlanAction(
   episodeId: string,
   generationId: string,
   mode: ScenePlanApplyMode,
+  formData: FormData,
 ) {
-  if (mode !== 'append' && mode !== 'replace') {
+  if (
+    (mode !== 'append' && mode !== 'replace')
+    || ![projectId, episodeId, generationId].every(id => z.uuid().safeParse(id).success)
+  ) {
     redirect(scenesPath(projectId, episodeId, {
       generation: generationId,
       scenePlanError: 'invalid',
     }))
   }
   try {
-    const result = await applyScenePlanGeneration({
+    const parsedJson = JSON.parse(String(formData.get('scenePlan') || ''))
+    const parsed = scenePlanSchema.safeParse(parsedJson)
+    if (!parsed.success) {
+      redirect(scenesPath(projectId, episodeId, {
+        generation: generationId,
+        scenePlanError: 'invalid_output',
+      }))
+    }
+    const result = await saveAndApplyScenePlanGeneration({
       projectId,
       episodeId,
       generationId,
       mode,
+      input: parsed.data,
     })
     if (!result.ok) {
       redirect(scenesPath(projectId, episodeId, {
@@ -152,7 +166,7 @@ export async function applyScenePlanAction(
     refresh(projectId, episodeId)
     redirect(scenesPath(projectId, episodeId, {
       selectedScene: result.createdSceneIds[0] || '',
-      notice: 'scene-plan-applied',
+      notice: 'scene-plan-saved-applied',
     }))
   } catch (error) {
     if ((error as { digest?: string }).digest?.startsWith('NEXT_REDIRECT')) throw error

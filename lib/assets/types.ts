@@ -110,3 +110,17 @@ export interface LocationDto extends AssetDto {
 }
 
 export type StoryStudioTab = 'characters' | 'costumes' | 'locations' | 'story-bible'
+
+export interface AssetUsage {
+  costumes?: number
+  scenes?: number
+  shots?: number
+}
+
+export type AssetDeleteResult =
+  | { deleted: true }
+  | {
+      deleted: false
+      reason: 'not-found' | 'in-use'
+      usage?: AssetUsage
+    }

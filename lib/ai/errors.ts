@@ -15,9 +15,9 @@ const messages: Record<AIErrorCode, string> = {
   AI_PROVIDER_ERROR: 'The provider temporarily rejected the request.',
   AI_RATE_LIMIT: 'The AI provider rate limit was reached. Try again later.',
   AI_TIMEOUT: 'The AI provider request timed out.',
-  AI_INVALID_OUTPUT: 'The generated outline did not match the required structure.',
+  AI_INVALID_OUTPUT: 'The AI response did not match the required structure.',
   AI_CONTEXT_ERROR: 'The episode context is incomplete or unavailable.',
-  AI_UNKNOWN_ERROR: 'The outline could not be generated.',
+  AI_UNKNOWN_ERROR: 'The AI task could not be completed.',
 }
 
 export class ScenePilotAIError extends Error {

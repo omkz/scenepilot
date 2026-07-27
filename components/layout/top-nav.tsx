@@ -65,7 +65,7 @@ export function TopNav({ project, onAIToggle, onMobileMenuToggle, aiOpen }: TopN
             'flex items-center justify-center w-7 h-7 rounded-md',
             aiOpen ? 'bg-amber-500/20 text-amber-400' : 'text-muted-foreground hover:text-foreground hover:bg-accent'
           )}
-          title="Showrunner AI"
+          title="AI Tools"
         >
           <Sparkles size={14} />
         </button>

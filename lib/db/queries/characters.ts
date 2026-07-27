@@ -3,8 +3,15 @@ import 'server-only'
 import { and, count, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDatabase } from '@/lib/db'
-import { characters, costumes, projects, type CharacterRecord } from '@/lib/db/schema'
-import type { AssetStatus, CharacterDto } from '@/lib/assets/types'
+import {
+  characters,
+  costumes,
+  projects,
+  sceneCharacters,
+  shotCharacters,
+  type CharacterRecord,
+} from '@/lib/db/schema'
+import type { AssetDeleteResult, AssetStatus, AssetUsage, CharacterDto } from '@/lib/assets/types'
 import type { CharacterInput } from '@/lib/assets/validation'
 
 function validIds(...ids: string[]) {
@@ -98,21 +105,42 @@ export function restoreCharacter(projectId: string, characterId: string) {
   return setCharacterStatus(projectId, characterId, 'Draft')
 }
 
-export async function deleteCharacter(projectId: string, characterId: string) {
-  if (!validIds(projectId, characterId)) return { deleted: false, reason: 'not-found' } as const
-  return getDatabase().transaction(async transaction => {
-    const [dependent] = await transaction
-      .select({ value: count(costumes.id) })
-      .from(costumes)
-      .where(and(eq(costumes.projectId, projectId), eq(costumes.characterId, characterId)))
-    if (Number(dependent.value) > 0) return { deleted: false, reason: 'has-costumes' } as const
-
-    const [row] = await transaction
-      .delete(characters)
-      .where(and(eq(characters.projectId, projectId), eq(characters.id, characterId)))
-      .returning({ id: characters.id })
-    return row
-      ? { deleted: true, reason: null } as const
-      : { deleted: false, reason: 'not-found' } as const
-  })
+export async function deleteCharacter(projectId: string, characterId: string): Promise<AssetDeleteResult> {
+  if (!validIds(projectId, characterId)) return { deleted: false, reason: 'not-found' }
+  let usage: AssetUsage = {}
+  try {
+    return await getDatabase().transaction(async transaction => {
+      const [target] = await transaction.select({ id: characters.id }).from(characters)
+        .where(and(eq(characters.projectId, projectId), eq(characters.id, characterId)))
+        .limit(1).for('update')
+      if (!target) return { deleted: false, reason: 'not-found' } as const
+      const [costumeUsage, sceneUsage, shotUsage] = await Promise.all([
+        transaction.select({ value: count(costumes.id) }).from(costumes)
+          .where(and(eq(costumes.projectId, projectId), eq(costumes.characterId, characterId))),
+        transaction.select({ value: count(sceneCharacters.id) }).from(sceneCharacters)
+          .where(and(eq(sceneCharacters.projectId, projectId), eq(sceneCharacters.characterId, characterId))),
+        transaction.select({ value: count(shotCharacters.id) }).from(shotCharacters)
+          .where(and(eq(shotCharacters.projectId, projectId), eq(shotCharacters.characterId, characterId))),
+      ])
+      usage = {
+        costumes: Number(costumeUsage[0].value),
+        scenes: Number(sceneUsage[0].value),
+        shots: Number(shotUsage[0].value),
+      }
+      if (Object.values(usage).some(value => value > 0)) {
+        return { deleted: false, reason: 'in-use', usage } as const
+      }
+      const [row] = await transaction.delete(characters)
+        .where(and(eq(characters.projectId, projectId), eq(characters.id, characterId)))
+        .returning({ id: characters.id })
+      return row
+        ? { deleted: true } as const
+        : { deleted: false, reason: 'not-found' } as const
+    })
+  } catch (error) {
+    if ((error as { code?: string }).code === '23503') {
+      return { deleted: false, reason: 'in-use', usage }
+    }
+    throw error
+  }
 }
