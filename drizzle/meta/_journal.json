@@ -15,6 +15,13 @@
       "when": 1785101367577,
       "tag": "0001_ancient_flatman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785104875009,
+      "tag": "0002_late_rocket_raccoon",
+      "breakpoints": true
     }
   ]
 }

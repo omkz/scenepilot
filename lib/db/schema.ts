@@ -26,6 +26,7 @@ export const projects = pgTable('projects', {
   nextCharacterNumber: integer('next_character_number').default(1).notNull(),
   nextCostumeNumber: integer('next_costume_number').default(1).notNull(),
   nextLocationNumber: integer('next_location_number').default(1).notNull(),
+  nextEpisodeNumber: integer('next_episode_number').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
@@ -115,7 +116,83 @@ export const locations = pgTable('locations', {
   index('locations_archived_at_idx').on(table.archivedAt),
 ])
 
+export const episodes = pgTable('episodes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  episodeNumber: integer('episode_number').notNull(),
+  nextSceneNumber: integer('next_scene_number').default(1).notNull(),
+  title: varchar('title', { length: 150 }).notNull(),
+  summary: text('summary'),
+  outline: text('outline'),
+  script: text('script'),
+  cliffhanger: text('cliffhanger'),
+  targetDurationSeconds: integer('target_duration_seconds').notNull(),
+  status: varchar('status', { length: 30 }).default('Draft').notNull(),
+  productionStatus: varchar('production_status', { length: 40 }).default('Not Started').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
+}, table => [
+  uniqueIndex('episodes_project_number_unique').on(table.projectId, table.episodeNumber),
+  index('episodes_project_id_idx').on(table.projectId),
+  index('episodes_status_idx').on(table.status),
+  index('episodes_production_status_idx').on(table.productionStatus),
+  index('episodes_archived_at_idx').on(table.archivedAt),
+])
+
+export const scenes = pgTable('scenes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  episodeId: uuid('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  sceneNumber: integer('scene_number').notNull(),
+  position: integer('position').notNull(),
+  title: varchar('title', { length: 150 }).notNull(),
+  purpose: text('purpose'),
+  summary: text('summary'),
+  script: text('script'),
+  emotionalTone: varchar('emotional_tone', { length: 200 }),
+  timeOfDay: varchar('time_of_day', { length: 30 }).default('Unspecified').notNull(),
+  targetDurationSeconds: integer('target_duration_seconds').notNull(),
+  locationId: uuid('location_id').references(() => locations.id, { onDelete: 'set null' }),
+  status: varchar('status', { length: 30 }).default('Draft').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
+}, table => [
+  uniqueIndex('scenes_episode_number_unique').on(table.episodeId, table.sceneNumber),
+  uniqueIndex('scenes_episode_position_unique').on(table.episodeId, table.position),
+  index('scenes_project_id_idx').on(table.projectId),
+  index('scenes_episode_id_idx').on(table.episodeId),
+  index('scenes_location_id_idx').on(table.locationId),
+  index('scenes_position_idx').on(table.position),
+  index('scenes_archived_at_idx').on(table.archivedAt),
+])
+
+export const sceneCharacters = pgTable('scene_characters', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  episodeId: uuid('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  sceneId: uuid('scene_id').notNull().references(() => scenes.id, { onDelete: 'cascade' }),
+  characterId: uuid('character_id').notNull().references(() => characters.id, { onDelete: 'restrict' }),
+  costumeId: uuid('costume_id').references(() => costumes.id, { onDelete: 'restrict' }),
+  roleInScene: varchar('role_in_scene', { length: 100 }),
+  emotionalState: varchar('emotional_state', { length: 500 }),
+  physicalState: varchar('physical_state', { length: 500 }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+}, table => [
+  uniqueIndex('scene_characters_scene_character_unique').on(table.sceneId, table.characterId),
+  index('scene_characters_project_id_idx').on(table.projectId),
+  index('scene_characters_episode_id_idx').on(table.episodeId),
+  index('scene_characters_scene_id_idx').on(table.sceneId),
+  index('scene_characters_character_id_idx').on(table.characterId),
+  index('scene_characters_costume_id_idx').on(table.costumeId),
+])
+
 export type ProjectRecord = typeof projects.$inferSelect
 export type CharacterRecord = typeof characters.$inferSelect
 export type CostumeRecord = typeof costumes.$inferSelect
 export type LocationRecord = typeof locations.$inferSelect
+export type EpisodeRecord = typeof episodes.$inferSelect
+export type SceneRecord = typeof scenes.$inferSelect
+export type SceneCharacterRecord = typeof sceneCharacters.$inferSelect
