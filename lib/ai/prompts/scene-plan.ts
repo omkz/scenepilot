@@ -81,7 +81,8 @@ export function buildScenePlanPrompt({
       narrativeRole: character.narrativeRole,
       personality: character.personality,
       motivation: character.motivation,
-      appearance: character.appearance,
+      visualDirection: character.visualDirection,
+      appearanceSummary: character.appearance,
       distinguishingFeatures: character.distinguishingFeatures,
     })),
     approvedCostumes: costumes.map(costume => ({
@@ -90,7 +91,8 @@ export function buildScenePlanPrompt({
       name: costume.name,
       characterId: costume.characterId,
       category: costume.category,
-      condition: costume.condition,
+      defaultCondition: costume.condition,
+      visualDirection: costume.description,
       isDefault: costume.isDefault,
     })),
     approvedLocations: locations.map(location => ({
@@ -102,7 +104,7 @@ export function buildScenePlanPrompt({
       architectureStyle: location.architectureStyle,
       defaultTimeOfDay: location.defaultTimeOfDay,
       defaultLighting: location.defaultLighting,
-      visualIdentityNotes: location.visualIdentityNotes,
+      visualDirection: location.visualIdentityNotes,
     })),
   }
 

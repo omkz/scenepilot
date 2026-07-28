@@ -58,7 +58,8 @@ export function buildEpisodeOutlinePrompt({
       narrativeRole: character.narrativeRole,
       personality: character.personality,
       motivation: character.motivation,
-      appearance: character.appearance,
+      visualDirection: character.visualDirection,
+      appearanceSummary: character.appearance,
       distinguishingFeatures: character.distinguishingFeatures,
     })),
     approvedCostumes: costumes.map(costume => ({
@@ -68,7 +69,8 @@ export function buildEpisodeOutlinePrompt({
       characterId: costume.characterId,
       assignedCharacter: costume.characterName,
       category: costume.category,
-      condition: costume.condition,
+      defaultCondition: costume.condition,
+      visualDirection: costume.description,
       isDefault: costume.isDefault,
     })),
     approvedLocations: locations.map(location => ({
@@ -80,7 +82,7 @@ export function buildEpisodeOutlinePrompt({
       architectureStyle: location.architectureStyle,
       defaultTimeOfDay: location.defaultTimeOfDay,
       defaultLighting: location.defaultLighting,
-      visualIdentityNotes: location.visualIdentityNotes,
+      visualDirection: location.visualIdentityNotes,
     })),
   }
 

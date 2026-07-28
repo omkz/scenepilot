@@ -35,6 +35,16 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scenepilot
 
 Database access is server-only. Project, asset, episode, scene, and storyboard mutations use Server Actions with Zod validation and project-scoped query modules.
 
+## Visual asset storage
+
+Character, Costume, and Location inspiration images use Vercel Blob. Connect a public Blob store to the Vercel project and configure:
+
+```env
+BLOB_READ_WRITE_TOKEN=
+```
+
+Uploads use scoped client-upload tokens so images up to 10 MB do not pass through the Vercel Function request body. The server generates storage paths, validates project and asset scope, restricts uploads to JPEG, PNG, and WebP, verifies the stored file signature, and persists only object metadata in PostgreSQL. Each asset supports up to five inspiration images and one explicitly selected Master Reference. Missing images do not block Episode Outline or Scene Plan generation.
+
 ## AI episode outlines
 
 AI calls run only from server-side task services. Qwen is the first provider adapter, while provider and model selection remain backend controlled:

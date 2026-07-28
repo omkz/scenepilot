@@ -53,15 +53,9 @@ function characterPayload(formData: FormData) {
     genderPresentation: text(formData, 'genderPresentation'),
     personality: text(formData, 'personality'),
     motivation: text(formData, 'motivation'),
+    visualDirection: text(formData, 'visualDirection'),
     appearance: text(formData, 'appearance'),
     distinguishingFeatures: text(formData, 'distinguishingFeatures'),
-    facialIdentityLocked: text(formData, 'facialIdentityLocked'),
-    skinToneLocked: text(formData, 'skinToneLocked'),
-    eyeColorLocked: text(formData, 'eyeColorLocked'),
-    hairstyleLocked: text(formData, 'hairstyleLocked'),
-    bodyProportionsLocked: text(formData, 'bodyProportionsLocked'),
-    distinguishingFeaturesLocked: text(formData, 'distinguishingFeaturesLocked'),
-    accessoriesLocked: text(formData, 'accessoriesLocked'),
   }
 }
 
@@ -85,9 +79,6 @@ function locationPayload(formData: FormData) {
     defaultTimeOfDay: text(formData, 'defaultTimeOfDay'),
     defaultLighting: text(formData, 'defaultLighting'),
     visualIdentityNotes: text(formData, 'visualIdentityNotes'),
-    architectureLocked: text(formData, 'architectureLocked'),
-    layoutLocked: text(formData, 'layoutLocked'),
-    lightingLocked: text(formData, 'lightingLocked'),
   }
 }
 

@@ -50,6 +50,14 @@ export const LOCATION_LIGHTING = [
   'Overcast',
   'Custom',
 ] as const
+export const ASSET_IMAGE_ROLES = [
+  'Inspiration',
+  'Generated Concept',
+  'Master Reference',
+  'Alternate View',
+] as const
+export const ASSET_IMAGE_SOURCE_TYPES = ['Upload', 'AI Generated'] as const
+export const ASSET_TYPES = ['character', 'costume', 'location'] as const
 
 export type AssetStatus = typeof ASSET_STATUSES[number]
 export type NarrativeRole = typeof NARRATIVE_ROLES[number]
@@ -58,6 +66,9 @@ export type CostumeCondition = typeof COSTUME_CONDITIONS[number]
 export type LocationType = typeof LOCATION_TYPES[number]
 export type LocationTime = typeof LOCATION_TIMES[number]
 export type LocationLighting = typeof LOCATION_LIGHTING[number]
+export type AssetImageRole = typeof ASSET_IMAGE_ROLES[number]
+export type AssetImageSourceType = typeof ASSET_IMAGE_SOURCE_TYPES[number]
+export type AssetType = typeof ASSET_TYPES[number]
 
 interface AssetDto {
   id: string
@@ -76,6 +87,7 @@ export interface CharacterDto extends AssetDto {
   genderPresentation: string | null
   personality: string | null
   motivation: string | null
+  visualDirection: string | null
   appearance: string | null
   distinguishingFeatures: string | null
   facialIdentityLocked: boolean
@@ -107,6 +119,28 @@ export interface LocationDto extends AssetDto {
   architectureLocked: boolean
   layoutLocked: boolean
   lightingLocked: boolean
+}
+
+export interface AssetImageDto {
+  id: string
+  projectId: string
+  assetType: AssetType
+  assetId: string
+  imageRole: AssetImageRole
+  sourceType: AssetImageSourceType
+  storageProvider: string
+  storageKey: string
+  storageUrl: string
+  originalFilename: string | null
+  mimeType: string
+  sizeBytes: number
+  width: number | null
+  height: number | null
+  sourceUrl: string | null
+  sourceNote: string | null
+  position: number
+  createdAt: string
+  updatedAt: string
 }
 
 export type StoryStudioTab = 'characters' | 'costumes' | 'locations' | 'story-bible'

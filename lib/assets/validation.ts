@@ -17,6 +17,10 @@ const optionalText = (maximum: number, message: string) => z
   .transform(value => value || null)
 
 const checkbox = z.preprocess(value => value === 'on' || value === 'true' || value === true, z.boolean())
+const optionalCheckbox = z.preprocess(
+  value => value === undefined ? undefined : value === 'on' || value === 'true' || value === true,
+  z.boolean().optional(),
+)
 
 export const characterInputSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name must be 100 characters or fewer'),
@@ -28,21 +32,22 @@ export const characterInputSchema = z.object({
   genderPresentation: optionalText(100, 'Gender presentation must be 100 characters or fewer'),
   personality: optionalText(1000, 'Personality must be 1,000 characters or fewer'),
   motivation: optionalText(1000, 'Motivation must be 1,000 characters or fewer'),
+  visualDirection: optionalText(2000, 'Visual direction must be 2,000 characters or fewer'),
   appearance: optionalText(2000, 'Appearance must be 2,000 characters or fewer'),
   distinguishingFeatures: optionalText(1000, 'Distinguishing features must be 1,000 characters or fewer'),
-  facialIdentityLocked: checkbox,
-  skinToneLocked: checkbox,
-  eyeColorLocked: checkbox,
-  hairstyleLocked: checkbox,
-  bodyProportionsLocked: checkbox,
-  distinguishingFeaturesLocked: checkbox,
-  accessoriesLocked: checkbox,
+  facialIdentityLocked: optionalCheckbox,
+  skinToneLocked: optionalCheckbox,
+  eyeColorLocked: optionalCheckbox,
+  hairstyleLocked: optionalCheckbox,
+  bodyProportionsLocked: optionalCheckbox,
+  distinguishingFeaturesLocked: optionalCheckbox,
+  accessoriesLocked: optionalCheckbox,
 })
 
 export const costumeInputSchema = z.object({
   characterId: z.uuid('Select a valid project character'),
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name must be 100 characters or fewer'),
-  description: optionalText(2000, 'Description must be 2,000 characters or fewer'),
+  description: optionalText(2000, 'Visual direction must be 2,000 characters or fewer'),
   category: z.enum(COSTUME_CATEGORIES).default('Default'),
   condition: z.enum(COSTUME_CONDITIONS).default('Clean'),
   isDefault: checkbox,
@@ -53,12 +58,18 @@ export const locationInputSchema = z.object({
   description: optionalText(2000, 'Description must be 2,000 characters or fewer'),
   locationType: z.enum(LOCATION_TYPES),
   architectureStyle: optionalText(500, 'Architecture style must be 500 characters or fewer'),
-  defaultTimeOfDay: z.enum(LOCATION_TIMES),
-  defaultLighting: z.enum(LOCATION_LIGHTING),
+  defaultTimeOfDay: z.preprocess(
+    value => value || 'Variable',
+    z.enum(LOCATION_TIMES),
+  ),
+  defaultLighting: z.preprocess(
+    value => value || 'Natural',
+    z.enum(LOCATION_LIGHTING),
+  ),
   visualIdentityNotes: optionalText(2000, 'Visual identity notes must be 2,000 characters or fewer'),
-  architectureLocked: checkbox,
-  layoutLocked: checkbox,
-  lightingLocked: checkbox,
+  architectureLocked: optionalCheckbox,
+  layoutLocked: optionalCheckbox,
+  lightingLocked: optionalCheckbox,
 })
 
 export const assetStatusSchema = z.enum(ASSET_STATUSES)

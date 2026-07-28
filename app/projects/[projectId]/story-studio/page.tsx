@@ -4,8 +4,10 @@ import { getProjectById } from '@/lib/db/queries/projects'
 import { listCharacters } from '@/lib/db/queries/characters'
 import { listCostumes } from '@/lib/db/queries/costumes'
 import { listLocations } from '@/lib/db/queries/locations'
+import { listAssetImages } from '@/lib/db/queries/asset-images'
 import { calculateAssetReadiness } from '@/lib/assets/readiness'
 import type { StoryStudioTab } from '@/lib/assets/types'
+import { getAssetStorageStatus } from '@/lib/storage/asset-storage'
 
 const STORY_STUDIO_TABS: StoryStudioTab[] = ['characters', 'costumes', 'locations', 'story-bible']
 
@@ -29,10 +31,11 @@ export default async function StoryStudioPage({ params, searchParams }: StoryStu
     : 'characters'
   const archived = query.archived === '1'
 
-  const [activeCharacters, activeCostumes, activeLocations] = await Promise.all([
+  const [activeCharacters, activeCostumes, activeLocations, assetImages] = await Promise.all([
     listCharacters(projectId),
     listCostumes(projectId),
     listLocations(projectId),
+    listAssetImages(projectId),
   ])
   const [characters, costumes, locations] = archived
     ? await Promise.all([
@@ -52,6 +55,8 @@ export default async function StoryStudioPage({ params, searchParams }: StoryStu
       activeCharacters={activeCharacters}
       costumes={costumes}
       locations={locations}
+      assetImages={assetImages}
+      storageConfigured={getAssetStorageStatus().configured}
       readiness={calculateAssetReadiness(activeCharacters, activeCostumes, activeLocations)}
       saved={query.saved === '1'}
       error={query.error}

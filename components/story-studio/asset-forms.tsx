@@ -19,6 +19,7 @@ import {
   LOCATION_TIMES,
   LOCATION_TYPES,
   NARRATIVE_ROLES,
+  type AssetImageDto,
   type CharacterDto,
   type CostumeDto,
   type LocationDto,
@@ -34,6 +35,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { AssetImageManager } from '@/components/story-studio/asset-image-manager'
 
 const selectClassName = 'h-8 w-full rounded-lg border border-input bg-input/30 px-2.5 text-sm outline-none focus:border-ring'
 
@@ -60,6 +62,15 @@ function SubmitButton({ editing }: { editing: boolean }) {
   )
 }
 
+function PendingVisualReferences() {
+  return <section className="border-t px-4 pb-6 pt-5">
+    <h3 className="text-sm font-semibold">Visual References</h3>
+    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+      Create the asset first, then reopen it to upload inspiration images and select its Master Reference.
+    </p>
+  </section>
+}
+
 function CheckField({ name, label, defaultChecked }: { name: string; label: string; defaultChecked?: boolean }) {
   return (
     <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs">
@@ -72,9 +83,11 @@ function CheckField({ name, label, defaultChecked }: { name: string; label: stri
 interface CharacterFormSheetProps {
   projectId: string
   character?: CharacterDto
+  images?: AssetImageDto[]
+  storageConfigured?: boolean
 }
 
-export function CharacterFormSheet({ projectId, character }: CharacterFormSheetProps) {
+export function CharacterFormSheet({ projectId, character, images = [], storageConfigured = false }: CharacterFormSheetProps) {
   const action = character
     ? updateCharacterAction.bind(null, projectId, character.id)
     : createCharacterAction.bind(null, projectId)
@@ -101,7 +114,7 @@ export function CharacterFormSheet({ projectId, character }: CharacterFormSheetP
       <SheetContent className="overflow-y-auto sm:max-w-xl">
         <SheetHeader className="border-b border-border">
           <SheetTitle>{editing ? `Edit ${character?.name}` : 'Create Character'}</SheetTitle>
-          <SheetDescription>Define a reusable cast reference and lock the traits that must remain consistent.</SheetDescription>
+          <SheetDescription>Define who this character is and the visual direction for their reusable identity.</SheetDescription>
         </SheetHeader>
         <form action={formAction} className="space-y-5 px-4 pb-6">
           <FormMessage state={state} />
@@ -119,7 +132,7 @@ export function CharacterFormSheet({ projectId, character }: CharacterFormSheetP
               <FieldError value={state.errors?.narrativeRole} />
             </label>
             <label>
-              <span className="text-xs font-medium">Age</span>
+              <span className="text-xs font-medium">Age / Apparent age</span>
               <Input name="age" type="number" min={0} max={200} defaultValue={character?.age ?? ''} className="mt-1.5" />
               <FieldError value={state.errors?.age} />
             </label>
@@ -131,8 +144,7 @@ export function CharacterFormSheet({ projectId, character }: CharacterFormSheetP
             {[
               ['personality', 'Personality', 1000, character?.personality],
               ['motivation', 'Motivation', 1000, character?.motivation],
-              ['appearance', 'Appearance', 2000, character?.appearance],
-              ['distinguishingFeatures', 'Distinguishing features', 1000, character?.distinguishingFeatures],
+              ['visualDirection', 'Visual Direction', 2000, character?.visualDirection],
             ].map(([name, label, maximum, value]) => (
               <label key={String(name)} className="col-span-2">
                 <span className="text-xs font-medium">{label}</span>
@@ -142,20 +154,27 @@ export function CharacterFormSheet({ projectId, character }: CharacterFormSheetP
             ))}
           </div>
 
-          <div>
-            <h3 className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Consistency locks</h3>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <CheckField name="facialIdentityLocked" label="Lock facial identity" defaultChecked={character?.facialIdentityLocked} />
-              <CheckField name="skinToneLocked" label="Lock skin tone" defaultChecked={character?.skinToneLocked} />
-              <CheckField name="eyeColorLocked" label="Lock eye color" defaultChecked={character?.eyeColorLocked} />
-              <CheckField name="hairstyleLocked" label="Lock hairstyle" defaultChecked={character?.hairstyleLocked} />
-              <CheckField name="bodyProportionsLocked" label="Lock body proportions" defaultChecked={character?.bodyProportionsLocked} />
-              <CheckField name="distinguishingFeaturesLocked" label="Preserve distinguishing features" defaultChecked={character?.distinguishingFeaturesLocked} />
-              <CheckField name="accessoriesLocked" label="Prevent accessory changes" defaultChecked={character?.accessoriesLocked} />
+          <details className="rounded-xl border bg-muted/10 p-3">
+            <summary className="cursor-pointer text-xs font-semibold">Advanced Visual Metadata</summary>
+            <p className="mt-2 text-[11px] text-muted-foreground">Optional metadata that can be refined after selecting a Master Portrait.</p>
+            <div className="mt-3 space-y-3">
+              <label className="block">
+                <span className="text-xs font-medium">Appearance Summary</span>
+                <Textarea name="appearance" defaultValue={character?.appearance || ''} maxLength={2000} className="mt-1.5 min-h-20" />
+                <FieldError value={state.errors?.appearance} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium">Distinguishing Features</span>
+                <Textarea name="distinguishingFeatures" defaultValue={character?.distinguishingFeatures || ''} maxLength={1000} className="mt-1.5 min-h-20" />
+                <FieldError value={state.errors?.distinguishingFeatures} />
+              </label>
             </div>
-          </div>
+          </details>
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
+        {character
+          ? <AssetImageManager projectId={projectId} assetType="character" assetId={character.id} images={images} storageConfigured={storageConfigured} />
+          : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>
   )
@@ -165,9 +184,11 @@ interface CostumeFormSheetProps {
   projectId: string
   characters: CharacterDto[]
   costume?: CostumeDto
+  images?: AssetImageDto[]
+  storageConfigured?: boolean
 }
 
-export function CostumeFormSheet({ projectId, characters, costume }: CostumeFormSheetProps) {
+export function CostumeFormSheet({ projectId, characters, costume, images = [], storageConfigured = false }: CostumeFormSheetProps) {
   const action = costume
     ? updateCostumeAction.bind(null, projectId, costume.id)
     : createCostumeAction.bind(null, projectId)
@@ -210,11 +231,6 @@ export function CostumeFormSheet({ projectId, characters, costume }: CostumeForm
             <Input name="name" defaultValue={costume?.name} maxLength={100} required className="mt-1.5" />
             <FieldError value={state.errors?.name} />
           </label>
-          <label className="block">
-            <span className="text-xs font-medium">Description</span>
-            <Textarea name="description" defaultValue={costume?.description || ''} maxLength={2000} className="mt-1.5 min-h-24" />
-            <FieldError value={state.errors?.description} />
-          </label>
           <div className="grid grid-cols-2 gap-3">
             <label>
               <span className="text-xs font-medium">Category</span>
@@ -223,15 +239,23 @@ export function CostumeFormSheet({ projectId, characters, costume }: CostumeForm
               </select>
             </label>
             <label>
-              <span className="text-xs font-medium">Condition</span>
+              <span className="text-xs font-medium">Default Condition</span>
               <select name="condition" defaultValue={costume?.condition || 'Clean'} className={`${selectClassName} mt-1.5`}>
                 {COSTUME_CONDITIONS.map(value => <option key={value}>{value}</option>)}
               </select>
             </label>
           </div>
           <CheckField name="isDefault" label="Default costume for this character" defaultChecked={costume?.isDefault} />
+          <label className="block">
+            <span className="text-xs font-medium">Visual Direction</span>
+            <Textarea name="description" defaultValue={costume?.description || ''} maxLength={2000} className="mt-1.5 min-h-24" />
+            <FieldError value={state.errors?.description} />
+          </label>
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
+        {costume
+          ? <AssetImageManager projectId={projectId} assetType="costume" assetId={costume.id} images={images} storageConfigured={storageConfigured} />
+          : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>
   )
@@ -240,9 +264,11 @@ export function CostumeFormSheet({ projectId, characters, costume }: CostumeForm
 interface LocationFormSheetProps {
   projectId: string
   location?: LocationDto
+  images?: AssetImageDto[]
+  storageConfigured?: boolean
 }
 
-export function LocationFormSheet({ projectId, location }: LocationFormSheetProps) {
+export function LocationFormSheet({ projectId, location, images = [], storageConfigured = false }: LocationFormSheetProps) {
   const action = location
     ? updateLocationAction.bind(null, projectId, location.id)
     : createLocationAction.bind(null, projectId)
@@ -269,7 +295,7 @@ export function LocationFormSheet({ projectId, location }: LocationFormSheetProp
       <SheetContent className="overflow-y-auto sm:max-w-xl">
         <SheetHeader className="border-b border-border">
           <SheetTitle>{editing ? `Edit ${location?.name}` : 'Create Location'}</SheetTitle>
-          <SheetDescription>Define a reusable environment and lock its production identity.</SheetDescription>
+          <SheetDescription>Define what this recurring environment is and how it should look.</SheetDescription>
         </SheetHeader>
         <form action={formAction} className="space-y-4 px-4 pb-6">
           <FormMessage state={state} />
@@ -283,43 +309,46 @@ export function LocationFormSheet({ projectId, location }: LocationFormSheetProp
             <Textarea name="description" defaultValue={location?.description || ''} maxLength={2000} className="mt-1.5 min-h-20" />
             <FieldError value={state.errors?.description} />
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label>
-              <span className="text-xs font-medium">Location type</span>
-              <select name="locationType" defaultValue={location?.locationType || 'Interior'} className={`${selectClassName} mt-1.5`}>
-                {LOCATION_TYPES.map(value => <option key={value}>{value}</option>)}
-              </select>
-            </label>
-            <label>
-              <span className="text-xs font-medium">Architecture style</span>
-              <Input name="architectureStyle" defaultValue={location?.architectureStyle || ''} maxLength={500} className="mt-1.5" />
-              <FieldError value={state.errors?.architectureStyle} />
-            </label>
-            <label>
-              <span className="text-xs font-medium">Default time</span>
-              <select name="defaultTimeOfDay" defaultValue={location?.defaultTimeOfDay || 'Morning'} className={`${selectClassName} mt-1.5`}>
-                {LOCATION_TIMES.map(value => <option key={value}>{value}</option>)}
-              </select>
-            </label>
-            <label>
-              <span className="text-xs font-medium">Default lighting</span>
-              <select name="defaultLighting" defaultValue={location?.defaultLighting || 'Natural'} className={`${selectClassName} mt-1.5`}>
-                {LOCATION_LIGHTING.map(value => <option key={value}>{value}</option>)}
-              </select>
-            </label>
-          </div>
           <label className="block">
-            <span className="text-xs font-medium">Visual identity notes</span>
+            <span className="text-xs font-medium">Location Type</span>
+            <select name="locationType" defaultValue={location?.locationType || 'Interior'} className={`${selectClassName} mt-1.5`}>
+              {LOCATION_TYPES.map(value => <option key={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium">Visual Direction</span>
             <Textarea name="visualIdentityNotes" defaultValue={location?.visualIdentityNotes || ''} maxLength={2000} className="mt-1.5 min-h-24" />
             <FieldError value={state.errors?.visualIdentityNotes} />
           </label>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <CheckField name="architectureLocked" label="Lock architecture" defaultChecked={location?.architectureLocked} />
-            <CheckField name="layoutLocked" label="Lock layout" defaultChecked={location?.layoutLocked} />
-            <CheckField name="lightingLocked" label="Lock lighting preset" defaultChecked={location?.lightingLocked} />
-          </div>
+          <details className="rounded-xl border bg-muted/10 p-3">
+            <summary className="cursor-pointer text-xs font-semibold">Advanced Environment Details</summary>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <label className="col-span-2">
+                <span className="text-xs font-medium">Architecture Style</span>
+                <Input name="architectureStyle" defaultValue={location?.architectureStyle || ''} maxLength={500} className="mt-1.5" />
+                <FieldError value={state.errors?.architectureStyle} />
+              </label>
+              <label>
+                <span className="text-xs font-medium">Default Time of Day</span>
+                <select name="defaultTimeOfDay" defaultValue={location?.defaultTimeOfDay || ''} className={`${selectClassName} mt-1.5`}>
+                  <option value="">Use scene context</option>
+                  {LOCATION_TIMES.map(value => <option key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                <span className="text-xs font-medium">Default Lighting</span>
+                <select name="defaultLighting" defaultValue={location?.defaultLighting || ''} className={`${selectClassName} mt-1.5`}>
+                  <option value="">Use safe default</option>
+                  {LOCATION_LIGHTING.map(value => <option key={value}>{value}</option>)}
+                </select>
+              </label>
+            </div>
+          </details>
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
+        {location
+          ? <AssetImageManager projectId={projectId} assetType="location" assetId={location.id} images={images} storageConfigured={storageConfigured} />
+          : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>
   )

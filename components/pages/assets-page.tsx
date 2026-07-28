@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useMemo, useState } from 'react'
 import {
   Archive,
   BookOpen,
   Check,
-  Lock,
+  ImageIcon,
   MapPin,
   RotateCcw,
   Search,
@@ -26,6 +27,7 @@ import {
   LOCATION_TYPES,
   NARRATIVE_ROLES,
   type AssetStatus,
+  type AssetImageDto,
   type CharacterDto,
   type CostumeDto,
   type LocationDto,
@@ -54,6 +56,8 @@ interface AssetsPageProps {
   readiness: AssetReadiness
   saved?: boolean
   error?: string
+  assetImages: AssetImageDto[]
+  storageConfigured: boolean
 }
 
 type AssetType = 'character' | 'costume' | 'location'
@@ -109,6 +113,33 @@ function EmptyState({
       {action && <div className="mt-5 flex justify-center">{action}</div>}
     </div>
   )
+}
+
+function VisualReference({
+  assetType,
+  images,
+}: {
+  assetType: AssetType
+  images: AssetImageDto[]
+}) {
+  const master = images.find(image => image.imageRole === 'Master Reference')
+  const inspirationCount = images.filter(image => image.imageRole === 'Inspiration').length
+  return <div>
+    <div className={cn(
+      'flex overflow-hidden rounded-lg border bg-muted/20',
+      assetType === 'character' ? 'h-24 w-20 shrink-0' : assetType === 'location' ? 'h-28 w-full' : 'h-28 w-full',
+    )}>
+      {master ? <Image
+        src={master.storageUrl}
+        alt="Master reference"
+        width={master.width || (assetType === 'character' ? 320 : 640)}
+        height={master.height || (assetType === 'location' ? 360 : 448)}
+        unoptimized
+        className={cn('h-full w-full', assetType === 'costume' ? 'object-contain' : 'object-cover')}
+      /> : <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[9px] text-muted-foreground"><ImageIcon size={14} /> No master reference</div>}
+    </div>
+    {assetType !== 'character' && <div className="mt-1 text-[10px] text-muted-foreground">{master ? 'Master reference approved' : `${inspirationCount} inspiration image${inspirationCount === 1 ? '' : 's'}`}</div>}
+  </div>
 }
 
 function AssetWorkflowActions({
@@ -232,12 +263,17 @@ export function AssetsPage({
   readiness,
   saved,
   error,
+  assetImages,
+  storageConfigured,
 }: AssetsPageProps) {
   const deleteError = deletionErrorMessage(error)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [secondaryFilter, setSecondaryFilter] = useState('')
   const searchValue = search.trim().toLowerCase()
+  const imagesFor = (type: AssetType, assetId: string) => assetImages.filter(image => (
+    image.assetType === type && image.assetId === assetId
+  ))
 
   const filteredCharacters = useMemo(() => characters.filter(character =>
     (!searchValue || `${character.name} ${character.assetCode}`.toLowerCase().includes(searchValue))
@@ -369,9 +405,7 @@ export function AssetsPage({
               {filteredCharacters.map(character => (
                 <article key={character.id} className="rounded-xl border border-border bg-card p-4">
                   <div className="flex gap-3">
-                    <div className="flex h-24 w-20 shrink-0 items-end rounded-lg bg-gradient-to-br from-slate-800 to-red-950 p-2">
-                      <Users size={15} className="text-white/40" />
-                    </div>
+                    <VisualReference assetType="character" images={imagesFor('character', character.id)} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -382,6 +416,8 @@ export function AssetsPage({
                       </div>
                       <div className="mt-2 text-[11px] text-muted-foreground">{character.narrativeRole}{character.age !== null ? ` · Age ${character.age}` : ''}</div>
                       <div className="mt-1 text-[11px] text-muted-foreground">{character.costumeCount} costume{character.costumeCount === 1 ? '' : 's'}</div>
+                      <div className="mt-2 text-[10px] text-muted-foreground">Story readiness: {character.approvalStatus}</div>
+                      <div className="text-[10px] text-muted-foreground">Visual readiness: {imagesFor('character', character.id).some(image => image.imageRole === 'Master Reference') ? 'Master reference ready' : 'Missing master reference'}</div>
                       <div className="mt-2 text-[10px] text-muted-foreground">Updated {new Date(character.updatedAt).toLocaleDateString()}</div>
                     </div>
                   </div>
@@ -389,7 +425,7 @@ export function AssetsPage({
                     projectId={projectId}
                     type="character"
                     asset={character}
-                    edit={!archived ? <CharacterFormSheet projectId={projectId} character={character} /> : undefined}
+                    edit={!archived ? <CharacterFormSheet projectId={projectId} character={character} images={imagesFor('character', character.id)} storageConfigured={storageConfigured} /> : undefined}
                   />
                 </article>
               ))}
@@ -418,9 +454,7 @@ export function AssetsPage({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {filteredCostumes.map(costume => (
                 <article key={costume.id} className="rounded-xl border border-border bg-card p-4">
-                  <div className="mb-3 flex h-24 items-end rounded-lg bg-gradient-to-br from-stone-800 to-slate-950 p-2.5">
-                    <Shirt size={16} className="text-white/40" />
-                  </div>
+                  <div className="mb-3"><VisualReference assetType="costume" images={imagesFor('costume', costume.id)} /></div>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h2 className="text-sm font-semibold">{costume.name}</h2>
@@ -433,11 +467,13 @@ export function AssetsPage({
                     <span>{costume.category}</span><span>·</span><span>{costume.condition}</span>
                     {costume.isDefault && <span className="rounded-full bg-amber-500/10 px-1.5 text-amber-400">Default</span>}
                   </div>
+                  <div className="mt-2 text-[10px] text-muted-foreground">Story readiness: {costume.approvalStatus}</div>
+                  <div className="text-[10px] text-muted-foreground">Visual readiness: {imagesFor('costume', costume.id).some(image => image.imageRole === 'Master Reference') ? 'Master reference ready' : 'Missing master reference'}</div>
                   <AssetWorkflowActions
                     projectId={projectId}
                     type="costume"
                     asset={costume}
-                    edit={!archived ? <CostumeFormSheet projectId={projectId} characters={activeCharacters} costume={costume} /> : undefined}
+                    edit={!archived ? <CostumeFormSheet projectId={projectId} characters={activeCharacters} costume={costume} images={imagesFor('costume', costume.id)} storageConfigured={storageConfigured} /> : undefined}
                   />
                 </article>
               ))}
@@ -459,9 +495,7 @@ export function AssetsPage({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {filteredLocations.map(location => (
                 <article key={location.id} className="rounded-xl border border-border bg-card p-4">
-                  <div className="mb-3 flex h-28 items-end rounded-lg bg-gradient-to-br from-slate-800 to-emerald-950 p-2.5">
-                    <MapPin size={16} className="text-white/40" />
-                  </div>
+                  <div className="mb-3"><VisualReference assetType="location" images={imagesFor('location', location.id)} /></div>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h2 className="text-sm font-semibold">{location.name}</h2>
@@ -472,16 +506,13 @@ export function AssetsPage({
                   <div className="mt-2 text-[11px] text-muted-foreground">
                     {location.locationType} · {location.defaultTimeOfDay} · {location.defaultLighting}
                   </div>
-                  <div className="mt-2 flex gap-2 text-[10px] text-muted-foreground">
-                    {location.architectureLocked && <span className="flex items-center gap-1"><Lock size={9} /> Architecture</span>}
-                    {location.layoutLocked && <span className="flex items-center gap-1"><Lock size={9} /> Layout</span>}
-                    {location.lightingLocked && <span className="flex items-center gap-1"><Lock size={9} /> Lighting</span>}
-                  </div>
+                  <div className="mt-2 text-[10px] text-muted-foreground">Story readiness: {location.approvalStatus}</div>
+                  <div className="text-[10px] text-muted-foreground">Visual readiness: {imagesFor('location', location.id).some(image => image.imageRole === 'Master Reference') ? 'Master reference ready' : 'Missing master reference'}</div>
                   <AssetWorkflowActions
                     projectId={projectId}
                     type="location"
                     asset={location}
-                    edit={!archived ? <LocationFormSheet projectId={projectId} location={location} /> : undefined}
+                    edit={!archived ? <LocationFormSheet projectId={projectId} location={location} images={imagesFor('location', location.id)} storageConfigured={storageConfigured} /> : undefined}
                   />
                 </article>
               ))}
@@ -492,7 +523,7 @@ export function AssetsPage({
               title={archived ? 'No archived locations' : 'Define your story world'}
               description={archived
                 ? 'Archived location references will appear here.'
-                : 'Create reusable locations with locked architecture, layout, and lighting.'}
+                : 'Create reusable environments with clear narrative and visual direction.'}
               action={!archived ? <LocationFormSheet projectId={projectId} /> : undefined}
             />
           )

@@ -98,7 +98,8 @@ export function buildShotListPrompt({
         assetCode: character?.assetCode,
         name: character?.name,
         narrativeRole: character?.narrativeRole,
-        appearance: limit(character?.appearance || null, 1500),
+        visualDirection: limit(character?.visualDirection || null, 1500),
+        appearanceSummary: limit(character?.appearance || null, 1500),
         distinguishingFeatures: limit(character?.distinguishingFeatures || null, 800),
         roleInScene: assignment.roleInScene,
         emotionalState: assignment.emotionalState,
@@ -108,7 +109,8 @@ export function buildShotListPrompt({
           assetCode: costume.assetCode,
           name: costume.name,
           category: costume.category,
-          condition: costume.condition,
+          defaultCondition: costume.condition,
+          visualDirection: costume.description,
         } : null,
       }
     }),
@@ -120,7 +122,7 @@ export function buildShotListPrompt({
       locationType: location.locationType,
       architectureStyle: location.architectureStyle,
       defaultLighting: location.defaultLighting,
-      visualIdentityNotes: limit(location.visualIdentityNotes, 1500),
+      visualDirection: limit(location.visualIdentityNotes, 1500),
       continuityLocks: {
         architecture: location.architectureLocked,
         layout: location.layoutLocked,

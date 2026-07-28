@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -47,6 +48,7 @@ export const characters = pgTable('characters', {
   genderPresentation: varchar('gender_presentation', { length: 100 }),
   personality: text('personality'),
   motivation: text('motivation'),
+  visualDirection: text('visual_direction'),
   appearance: text('appearance'),
   distinguishingFeatures: text('distinguishing_features'),
   approvalStatus: varchar('approval_status', { length: 20 }).default('Draft').notNull(),
@@ -115,6 +117,50 @@ export const locations = pgTable('locations', {
   index('locations_project_id_idx').on(table.projectId),
   index('locations_approval_status_idx').on(table.approvalStatus),
   index('locations_archived_at_idx').on(table.archivedAt),
+])
+
+export const assetImages = pgTable('asset_images', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  characterId: uuid('character_id').references(() => characters.id, { onDelete: 'cascade' }),
+  costumeId: uuid('costume_id').references(() => costumes.id, { onDelete: 'cascade' }),
+  locationId: uuid('location_id').references(() => locations.id, { onDelete: 'cascade' }),
+  imageRole: varchar('image_role', { length: 30 }).notNull(),
+  sourceType: varchar('source_type', { length: 20 }).notNull(),
+  storageProvider: varchar('storage_provider', { length: 40 }).notNull(),
+  storageKey: text('storage_key').notNull(),
+  storageUrl: text('storage_url').notNull(),
+  originalFilename: text('original_filename'),
+  mimeType: varchar('mime_type', { length: 40 }).notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  width: integer('width'),
+  height: integer('height'),
+  sourceUrl: text('source_url'),
+  sourceNote: text('source_note'),
+  position: integer('position').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+}, table => [
+  check(
+    'asset_images_exactly_one_owner_check',
+    sql`num_nonnulls(${table.characterId}, ${table.costumeId}, ${table.locationId}) = 1`,
+  ),
+  uniqueIndex('asset_images_storage_key_unique').on(table.storageKey),
+  uniqueIndex('asset_images_character_master_unique')
+    .on(table.characterId)
+    .where(sql`${table.characterId} is not null AND ${table.imageRole} = 'Master Reference'`),
+  uniqueIndex('asset_images_costume_master_unique')
+    .on(table.costumeId)
+    .where(sql`${table.costumeId} is not null AND ${table.imageRole} = 'Master Reference'`),
+  uniqueIndex('asset_images_location_master_unique')
+    .on(table.locationId)
+    .where(sql`${table.locationId} is not null AND ${table.imageRole} = 'Master Reference'`),
+  index('asset_images_project_id_idx').on(table.projectId),
+  index('asset_images_character_id_idx').on(table.characterId),
+  index('asset_images_costume_id_idx').on(table.costumeId),
+  index('asset_images_location_id_idx').on(table.locationId),
+  index('asset_images_image_role_idx').on(table.imageRole),
+  index('asset_images_created_at_idx').on(table.createdAt),
 ])
 
 export const episodes = pgTable('episodes', {
@@ -325,6 +371,7 @@ export type ProjectRecord = typeof projects.$inferSelect
 export type CharacterRecord = typeof characters.$inferSelect
 export type CostumeRecord = typeof costumes.$inferSelect
 export type LocationRecord = typeof locations.$inferSelect
+export type AssetImageRecord = typeof assetImages.$inferSelect
 export type EpisodeRecord = typeof episodes.$inferSelect
 export type SceneRecord = typeof scenes.$inferSelect
 export type SceneCharacterRecord = typeof sceneCharacters.$inferSelect
