@@ -319,6 +319,7 @@ export function AssetsPage({
             <Button
               variant={archived ? 'secondary' : 'outline'}
               render={<Link href={tabPath(projectId, activeTab, !archived)} />}
+              nativeButton={false}
               className="h-8 text-xs"
             >
               <Archive size={12} className="mr-1.5" />
@@ -453,7 +454,7 @@ export function AssetsPage({
               icon={Users}
               title="Create a character first"
               description="Every costume must belong to a project character."
-              action={<Button render={<Link href={tabPath(projectId, 'characters')} />} className="bg-amber-500 text-black hover:bg-amber-400">Create Character</Button>}
+              action={<Button nativeButton={false} render={<Link href={tabPath(projectId, 'characters')} />} className="bg-amber-500 text-black hover:bg-amber-400">Create Character</Button>}
             />
           ) : filteredCostumes.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
