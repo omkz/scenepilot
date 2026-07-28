@@ -17,6 +17,7 @@ import {
   selectCostumeConceptReferences,
   selectLocationConceptReferences,
 } from '@/lib/ai/image/references'
+import { resolveImageGenerationReferences } from '@/lib/ai/image/reference-resolver'
 import type {
   AssetConceptContext,
   GenerateAssetConceptsInput,
@@ -55,6 +56,7 @@ export interface AssetConceptServiceDependencies {
   scheduleCleanup?: typeof queueAssetStorageDeletion
   processCleanup?: typeof processAssetStorageDeletionJobs
   download?: (image: GeneratedConceptImage) => Promise<Uint8Array>
+  resolveReferences?: typeof resolveImageGenerationReferences
 }
 
 function isAllowedProviderUrl(value: string) {
@@ -133,7 +135,7 @@ function buildRequest(context: AssetConceptContext) {
   if (context.assetType === 'character' && context.character) {
     return {
       prompt: buildCharacterConceptPrompt(context.character),
-      references: selectCharacterConceptReferences(context.assetImages, context.character.id),
+      references: selectCharacterConceptReferences(context.assetImages, context.character.id, 3),
       archived: Boolean(context.character.archivedAt),
     }
   }
@@ -145,6 +147,7 @@ function buildRequest(context: AssetConceptContext) {
         costumeId: context.costume.id,
         characterImages: context.linkedCharacterImages || [],
         characterId: context.linkedCharacter.id,
+        limit: 3,
       }),
       archived: Boolean(context.costume.archivedAt) || Boolean(context.linkedCharacter.archivedAt),
     }
@@ -152,7 +155,7 @@ function buildRequest(context: AssetConceptContext) {
   if (context.assetType === 'location' && context.location) {
     return {
       prompt: buildLocationConceptPrompt(context.location),
-      references: selectLocationConceptReferences(context.assetImages, context.location.id),
+      references: selectLocationConceptReferences(context.assetImages, context.location.id, 3),
       archived: Boolean(context.location.archivedAt),
     }
   }
@@ -203,6 +206,7 @@ export async function generateAssetConcepts(
   const scheduleCleanup = dependencies.scheduleCleanup || queueAssetStorageDeletion
   const processCleanup = dependencies.processCleanup || processAssetStorageDeletionJobs
   const download = dependencies.download || downloadGeneratedConcept
+  const resolveReferences = dependencies.resolveReferences || resolveImageGenerationReferences
   const uploaded: Array<{
     provider: string
     key: string
@@ -214,12 +218,11 @@ export async function generateAssetConcepts(
   }> = []
 
   try {
+    const referenceImages = await resolveReferences(request.references)
     const generated = await provider.generateAssetConcepts({
       assetType: parsed.data.assetType,
       prompt: request.prompt,
-      referenceImageUrls: request.references
-        .map(image => image.storageUrl)
-        .filter(url => /^https:\/\//i.test(url)),
+      referenceImageUrls: referenceImages,
       candidateCount,
     })
     if (!generated.images.length) {

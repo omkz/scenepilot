@@ -30,9 +30,14 @@ export function readImageAIConfig(
   if (!Number.isInteger(candidateCount) || candidateCount < 1 || candidateCount > MAX_CANDIDATES) {
     throw new ImageAIError('invalid_candidate_count', 'Image candidate count must be between 1 and 6.')
   }
-  const apiKey = environment.DASHSCOPE_API_KEY?.trim() || ''
+  const apiKey = environment.DASHSCOPE_API_KEY?.trim()
+    || environment.QWEN_API_KEY?.trim()
+    || ''
   if (requireCredentials && !apiKey) {
-    throw new ImageAIError('provider_not_configured', 'DASHSCOPE_API_KEY is required.')
+    throw new ImageAIError(
+      'provider_not_configured',
+      'DASHSCOPE_API_KEY or QWEN_API_KEY is required.',
+    )
   }
   const baseUrl = environment.DASHSCOPE_BASE_URL || 'https://dashscope-intl.aliyuncs.com/api/v1'
   let normalizedBaseUrl = ''

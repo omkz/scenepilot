@@ -42,11 +42,14 @@ const character: CharacterDto = {
   archivedAt: null,
 }
 
-function context(archived = false): AssetConceptContext {
+function context(
+  archived = false,
+  assetImages: AssetImageDto[] = [],
+): AssetConceptContext {
   return {
     assetType: 'character',
     character: { ...character, archivedAt: archived ? '2026-01-02T00:00:00.000Z' : null },
-    assetImages: [],
+    assetImages,
   }
 }
 
@@ -137,6 +140,41 @@ describe('asset concept generation service', () => {
       provider: 'qwen',
       model: 'qwen-image-2.0-pro',
       images: expect.any(Array),
+    }))
+  })
+
+  it('resolves selected image records before calling the provider', async () => {
+    const selectedReference = {
+      ...dto(8),
+      imageRole: 'Inspiration' as const,
+      sourceType: 'Upload' as const,
+      storageProvider: 'local',
+      storageKey: `asset-images/${projectId}/character/${characterId}/00000000-0000-4000-8000-000000000008.png`,
+      storageUrl: '/api/local-assets/reference.png',
+      generationProvider: null,
+      generationModel: null,
+      generationPromptVersion: null,
+    }
+    const imageProvider = provider()
+    const resolveReferences = vi.fn(async () => ['data:image/png;base64,reference'])
+    await generateAssetConcepts({
+      projectId,
+      assetType: 'character',
+      assetId: characterId,
+    }, {
+      provider: imageProvider,
+      storage: storage(),
+      loadContext: async () => context(false, [selectedReference]),
+      resolveReferences,
+      persist: async () => ({
+        ok: true,
+        value: [dto(1), dto(2), dto(3), dto(4)],
+      }),
+      download: async image => image.bytes || png,
+    })
+    expect(resolveReferences).toHaveBeenCalledWith([selectedReference])
+    expect(imageProvider.generateAssetConcepts).toHaveBeenCalledWith(expect.objectContaining({
+      referenceImageUrls: ['data:image/png;base64,reference'],
     }))
   })
 
