@@ -1,0 +1,72 @@
+import 'server-only'
+
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+import type { AssetStorage } from '@/lib/storage/asset-storage'
+
+const LOCAL_KEY_PATTERN = /^asset-images\/[0-9a-f-]{36}\/(character|costume|location)\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i
+
+export function getLocalAssetStorageRoot() {
+  const configuredRoot = process.env.ASSET_LOCAL_STORAGE_ROOT
+  if (configuredRoot) return path.resolve(/* turbopackIgnore: true */ configuredRoot)
+  return path.join(
+    /* turbopackIgnore: true */ process.cwd(),
+    '.data',
+    'uploads',
+    'asset-images',
+  )
+}
+
+export function validateLocalAssetStorageKey(key: string) {
+  if (!LOCAL_KEY_PATTERN.test(key) || key.includes('\\') || key.includes('\0')) return false
+  const segments = key.split('/')
+  return segments.length === 5 && segments.every(segment => (
+    segment !== '.' && segment !== '..' && !segment.includes('%')
+  ))
+}
+
+export function resolveLocalAssetPath(key: string, root = getLocalAssetStorageRoot()) {
+  if (!validateLocalAssetStorageKey(key)) throw new Error('INVALID_LOCAL_ASSET_KEY')
+  const relativeKey = key.slice('asset-images/'.length)
+  const resolved = path.resolve(root, relativeKey)
+  const relative = path.relative(root, resolved)
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('INVALID_LOCAL_ASSET_KEY')
+  }
+  return resolved
+}
+
+export function localAssetUrl(key: string) {
+  if (!validateLocalAssetStorageKey(key)) throw new Error('INVALID_LOCAL_ASSET_KEY')
+  return `/api/local-assets/${key.split('/').map(encodeURIComponent).join('/')}`
+}
+
+export function createLocalAssetStorage(root = getLocalAssetStorageRoot()): AssetStorage {
+  return {
+    async upload(input) {
+      const destination = resolveLocalAssetPath(input.storageKey, root)
+      await mkdir(path.dirname(destination), { recursive: true })
+      await writeFile(destination, input.bytes, { flag: 'wx' })
+      return {
+        provider: 'local',
+        key: input.storageKey,
+        url: localAssetUrl(input.storageKey),
+      }
+    },
+    async remove(key) {
+      const destination = resolveLocalAssetPath(key, root)
+      await rm(destination, { force: true })
+    },
+  }
+}
+
+export async function readLocalAsset(key: string) {
+  return readFile(resolveLocalAssetPath(key))
+}
+
+export function localAssetContentType(key: string) {
+  if (key.toLowerCase().endsWith('.jpg')) return 'image/jpeg'
+  if (key.toLowerCase().endsWith('.png')) return 'image/png'
+  if (key.toLowerCase().endsWith('.webp')) return 'image/webp'
+  return null
+}

@@ -64,6 +64,13 @@
       "when": 1785241851221,
       "tag": "0008_smooth_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785246345362,
+      "tag": "0009_brainy_cloak",
+      "breakpoints": true
     }
   ]
 }

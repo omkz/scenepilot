@@ -1,10 +1,11 @@
 import 'server-only'
 
-import { and, asc, count, eq, inArray, max, ne, sql } from 'drizzle-orm'
+import { and, asc, count, eq, max, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDatabase } from '@/lib/db'
 import {
   assetImages,
+  assetStorageDeletionJobs,
   characters,
   costumes,
   locations,
@@ -34,7 +35,6 @@ export type AssetImageMutationReason =
   | 'cross_project_reference'
   | 'storage_unavailable'
   | 'upload_failed'
-  | 'delete_failed'
 
 export type AssetImageMutationResult<T = AssetImageDto> =
   | { ok: true; value: T }
@@ -140,6 +140,7 @@ export async function createUploadedAssetImage(input: {
   width: number | null
   height: number | null
   sourceNote: string | null
+  sourceUrl: string | null
 }): Promise<AssetImageMutationResult> {
   if (!valid(input.projectId, input.assetId)) return { ok: false, reason: 'not_found' }
   return getDatabase().transaction(async transaction => {
@@ -151,11 +152,12 @@ export async function createUploadedAssetImage(input: {
       transaction.select({ value: count(assetImages.id) }).from(assetImages).where(and(
         eq(assetImages.projectId, input.projectId),
         eq(ownerColumn[input.assetType], input.assetId),
-        ne(assetImages.imageRole, 'Master Reference'),
+        eq(assetImages.imageRole, 'Inspiration'),
       )),
       transaction.select({ value: max(assetImages.position) }).from(assetImages).where(and(
         eq(assetImages.projectId, input.projectId),
         eq(ownerColumn[input.assetType], input.assetId),
+        eq(assetImages.imageRole, 'Inspiration'),
       )),
     ])
     if (Number(inspirationTotal[0].value) >= 5) {
@@ -180,6 +182,7 @@ export async function createUploadedAssetImage(input: {
       width: input.width,
       height: input.height,
       sourceNote: input.sourceNote,
+      sourceUrl: input.sourceUrl,
       position: Number(positionResult[0].value || 0) + 1,
     }).returning()
     return { ok: true, value: serialize(row) } as const
@@ -203,10 +206,19 @@ export async function setAssetImageAsMaster(
       eq(ownerColumn[assetType], assetId),
     )).for('update')
     const target = rows.find(row => row.id === imageId)
-    if (!target) return { ok: false, reason: 'not_found' } as const
+    if (!target || target.imageRole !== 'Inspiration') {
+      return { ok: false, reason: 'not_found' } as const
+    }
     const now = new Date()
+    const supportingPosition = Math.max(
+      0,
+      ...rows
+        .filter(row => row.imageRole === 'Inspiration' && row.id !== imageId)
+        .map(row => row.position),
+    ) + 1
     await transaction.update(assetImages).set({
-      imageRole: 'Alternate View',
+      imageRole: 'Inspiration',
+      position: supportingPosition,
       updatedAt: now,
     }).where(and(
       eq(assetImages.projectId, projectId),
@@ -253,16 +265,30 @@ export async function deleteAssetImage(
   assetType: AssetType,
   assetId: string,
   imageId: string,
-): Promise<AssetImageMutationResult<{ storageKey: string }>> {
+): Promise<AssetImageMutationResult<{ cleanupJobId: string }>> {
   if (!valid(projectId, assetId, imageId)) return { ok: false, reason: 'not_found' }
-  const [row] = await getDatabase().delete(assetImages).where(and(
-    eq(assetImages.projectId, projectId),
-    eq(ownerColumn[assetType], assetId),
-    eq(assetImages.id, imageId),
-  )).returning({ storageKey: assetImages.storageKey })
-  return row
-    ? { ok: true, value: row }
-    : { ok: false, reason: 'not_found' }
+  return getDatabase().transaction(async transaction => {
+    const [image] = await transaction.select({
+      id: assetImages.id,
+      storageProvider: assetImages.storageProvider,
+      storageKey: assetImages.storageKey,
+    }).from(assetImages).where(and(
+      eq(assetImages.projectId, projectId),
+      eq(ownerColumn[assetType], assetId),
+      eq(assetImages.id, imageId),
+    )).limit(1).for('update')
+    if (!image) return { ok: false, reason: 'not_found' } as const
+    await transaction.delete(assetImages).where(and(
+      eq(assetImages.projectId, projectId),
+      eq(ownerColumn[assetType], assetId),
+      eq(assetImages.id, imageId),
+    ))
+    const [job] = await transaction.insert(assetStorageDeletionJobs).values({
+      storageProvider: image.storageProvider,
+      storageKey: image.storageKey,
+    }).returning({ id: assetStorageDeletionJobs.id })
+    return { ok: true, value: { cleanupJobId: job.id } } as const
+  })
 }
 
 export async function reorderAssetImages(
@@ -279,9 +305,13 @@ export async function reorderAssetImages(
     const rows = await transaction.select({ id: assetImages.id }).from(assetImages).where(and(
       eq(assetImages.projectId, projectId),
       eq(ownerColumn[assetType], assetId),
-      inArray(assetImages.id, orderedImageIds),
+      eq(assetImages.imageRole, 'Inspiration'),
     )).for('update')
-    if (rows.length !== orderedImageIds.length) return false
+    const existingIds = rows.map(row => row.id)
+    if (
+      existingIds.length !== orderedImageIds.length
+      || existingIds.some(id => !orderedImageIds.includes(id))
+    ) return false
     for (const [position, imageId] of orderedImageIds.entries()) {
       await transaction.update(assetImages).set({
         position: position + 1,

@@ -70,6 +70,12 @@ export type AssetImageRole = typeof ASSET_IMAGE_ROLES[number]
 export type AssetImageSourceType = typeof ASSET_IMAGE_SOURCE_TYPES[number]
 export type AssetType = typeof ASSET_TYPES[number]
 
+export interface AssetStorageStatusDto {
+  configured: boolean
+  driver: 'local' | 'vercel-blob'
+  uploadMode: 'server' | 'client'
+}
+
 interface AssetDto {
   id: string
   projectId: string

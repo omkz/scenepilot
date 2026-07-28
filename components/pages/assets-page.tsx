@@ -28,6 +28,7 @@ import {
   NARRATIVE_ROLES,
   type AssetStatus,
   type AssetImageDto,
+  type AssetStorageStatusDto,
   type CharacterDto,
   type CostumeDto,
   type LocationDto,
@@ -57,7 +58,7 @@ interface AssetsPageProps {
   saved?: boolean
   error?: string
   assetImages: AssetImageDto[]
-  storageConfigured: boolean
+  storageStatus: AssetStorageStatusDto
 }
 
 type AssetType = 'character' | 'costume' | 'location'
@@ -264,7 +265,7 @@ export function AssetsPage({
   saved,
   error,
   assetImages,
-  storageConfigured,
+  storageStatus,
 }: AssetsPageProps) {
   const deleteError = deletionErrorMessage(error)
   const [search, setSearch] = useState('')
@@ -425,7 +426,7 @@ export function AssetsPage({
                     projectId={projectId}
                     type="character"
                     asset={character}
-                    edit={!archived ? <CharacterFormSheet projectId={projectId} character={character} images={imagesFor('character', character.id)} storageConfigured={storageConfigured} /> : undefined}
+                    edit={!archived ? <CharacterFormSheet projectId={projectId} character={character} images={imagesFor('character', character.id)} storageStatus={storageStatus} /> : undefined}
                   />
                 </article>
               ))}
@@ -473,7 +474,7 @@ export function AssetsPage({
                     projectId={projectId}
                     type="costume"
                     asset={costume}
-                    edit={!archived ? <CostumeFormSheet projectId={projectId} characters={activeCharacters} costume={costume} images={imagesFor('costume', costume.id)} storageConfigured={storageConfigured} /> : undefined}
+                    edit={!archived ? <CostumeFormSheet projectId={projectId} characters={activeCharacters} costume={costume} images={imagesFor('costume', costume.id)} storageStatus={storageStatus} /> : undefined}
                   />
                 </article>
               ))}
@@ -512,7 +513,7 @@ export function AssetsPage({
                     projectId={projectId}
                     type="location"
                     asset={location}
-                    edit={!archived ? <LocationFormSheet projectId={projectId} location={location} images={imagesFor('location', location.id)} storageConfigured={storageConfigured} /> : undefined}
+                    edit={!archived ? <LocationFormSheet projectId={projectId} location={location} images={imagesFor('location', location.id)} storageStatus={storageStatus} /> : undefined}
                   />
                 </article>
               ))}

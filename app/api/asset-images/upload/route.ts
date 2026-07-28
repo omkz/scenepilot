@@ -5,28 +5,30 @@ import { ASSET_TYPES } from '@/lib/assets/types'
 import {
   ASSET_IMAGE_ALLOWED_MIME_TYPES,
   ASSET_IMAGE_MAX_BYTES,
-  validateAssetImage,
 } from '@/lib/assets/image-validation'
+import { persistStoredAssetImage } from '@/lib/assets/upload-asset-image'
 import {
-  createUploadedAssetImage,
   getAssetImageScopeState,
   listAssetImages,
 } from '@/lib/db/queries/asset-images'
-import { vercelBlobAssetStorage } from '@/lib/storage/asset-storage'
+import { queueAssetStorageDeletion } from '@/lib/db/queries/asset-storage-deletion-jobs'
+import { getAssetStorage, getAssetStorageStatus } from '@/lib/storage/asset-storage'
 
 const payloadSchema = z.object({
   projectId: z.uuid(),
   assetType: z.enum(ASSET_TYPES),
   assetId: z.uuid(),
   originalFilename: z.string().min(1).max(255),
+  sourceUrl: z.url({ protocol: /^https?$/ }).max(2000).optional(),
   sourceNote: z.string().trim().max(500).optional(),
   pathname: z.string().min(1).max(1000),
 })
 
 async function removeRejectedBlob(pathname: string) {
   try {
-    await vercelBlobAssetStorage.remove(pathname)
+    await getAssetStorage('vercel-blob').remove(pathname)
   } catch {
+    await queueAssetStorageDeletion('vercel-blob', pathname).catch(() => undefined)
     console.error('asset_image_rejected_blob_cleanup_failed', {
       storageProvider: 'vercel-blob',
       pathname,
@@ -35,7 +37,12 @@ async function removeRejectedBlob(pathname: string) {
 }
 
 export async function POST(request: Request) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  const storageStatus = getAssetStorageStatus()
+  if (
+    storageStatus.driver !== 'vercel-blob'
+    || !storageStatus.configured
+    || !process.env.BLOB_READ_WRITE_TOKEN
+  ) {
     return Response.json({ error: 'storage_unavailable' }, { status: 503 })
   }
   try {
@@ -72,7 +79,7 @@ export async function POST(request: Request) {
           parsedPayload.data.assetType,
           parsedPayload.data.assetId,
         )
-        if (images.filter(image => image.imageRole !== 'Master Reference').length >= 5) {
+        if (images.filter(image => image.imageRole === 'Inspiration').length >= 5) {
           throw new Error('IMAGE_LIMIT_REACHED')
         }
         return {
@@ -96,31 +103,21 @@ export async function POST(request: Request) {
           return
         }
         const bytes = new Uint8Array(await fileResponse.arrayBuffer())
-        const validated = validateAssetImage({
-          bytes,
-          claimedMimeType: blob.contentType,
-          filename: parsedPayload.data.originalFilename,
-          sizeBytes: bytes.byteLength,
-        })
-        if (!validated.valid) {
-          await removeRejectedBlob(blob.pathname)
-          return
-        }
-        const created = await createUploadedAssetImage({
+        const storage = getAssetStorage('vercel-blob')
+        await persistStoredAssetImage({
           projectId: parsedPayload.data.projectId,
           assetType: parsedPayload.data.assetType,
           assetId: parsedPayload.data.assetId,
+          claimedMimeType: blob.contentType,
+          bytes,
           storageProvider: 'vercel-blob',
           storageKey: blob.pathname,
           storageUrl: blob.url,
           originalFilename: parsedPayload.data.originalFilename,
-          mimeType: validated.mimeType,
-          sizeBytes: bytes.byteLength,
-          width: validated.width,
-          height: validated.height,
+          sourceUrl: parsedPayload.data.sourceUrl || null,
           sourceNote: parsedPayload.data.sourceNote || null,
+          cleanupStorage: storage,
         })
-        if (!created.ok) await removeRejectedBlob(blob.pathname)
       },
     })
     return Response.json(response)

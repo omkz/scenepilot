@@ -12,10 +12,10 @@ import {
   updateAssetImageMetadata,
   type AssetImageMutationReason,
 } from '@/lib/db/queries/asset-images'
+import { processAssetStorageDeletionJobs } from '@/lib/db/queries/asset-storage-deletion-jobs'
 import {
   createAssetStorageKey,
   getAssetStorageStatus,
-  vercelBlobAssetStorage,
 } from '@/lib/storage/asset-storage'
 
 const scopeSchema = z.object({
@@ -26,7 +26,7 @@ const scopeSchema = z.object({
 const metadataSchema = z.object({
   sourceUrl: z.preprocess(
     value => value || null,
-    z.url().max(2000).nullable(),
+    z.url({ protocol: /^https?$/ }).max(2000).nullable(),
   ),
   sourceNote: z.preprocess(
     value => value || null,
@@ -48,17 +48,20 @@ export async function prepareAssetImageUploadAction(input: {
   assetType: AssetType
   assetId: string
   originalFilename: string
+  sourceUrl?: string
   sourceNote?: string
 }) {
   const parsed = scopeSchema.extend({
     originalFilename: z.string().min(1).max(255),
+    sourceUrl: z.url({ protocol: /^https?$/ }).max(2000).optional(),
     sourceNote: z.string().trim().max(500).optional(),
   }).safeParse(input)
   if (!parsed.success) return { ok: false, reason: 'not_found' } as const
   if (!/\.(jpe?g|png|webp)$/i.test(parsed.data.originalFilename)) {
     return { ok: false, reason: 'unsupported_type' } as const
   }
-  if (!getAssetStorageStatus().configured) {
+  const storageStatus = getAssetStorageStatus()
+  if (!storageStatus.configured || storageStatus.uploadMode !== 'client') {
     return { ok: false, reason: 'storage_unavailable' } as const
   }
   const scope = await getAssetImageScopeState(
@@ -74,7 +77,7 @@ export async function prepareAssetImageUploadAction(input: {
     parsed.data.assetType,
     parsed.data.assetId,
   )
-  if (images.filter(image => image.imageRole !== 'Master Reference').length >= 5) {
+  if (images.filter(image => image.imageRole === 'Inspiration').length >= 5) {
     return { ok: false, reason: 'image_limit_reached' } as const
   }
   const pathname = createAssetStorageKey(
@@ -91,6 +94,16 @@ export async function prepareAssetImageUploadAction(input: {
       pathname,
     }),
   } as const
+}
+
+export async function listAssetImagesAction(
+  projectId: string,
+  assetType: AssetType,
+  assetId: string,
+) {
+  const scope = scopeSchema.safeParse({ projectId, assetType, assetId })
+  if (!scope.success) return []
+  return listAssetImages(projectId, assetType, assetId)
 }
 
 export async function setAssetImageAsMasterAction(
@@ -147,18 +160,7 @@ export async function deleteAssetImageAction(
   const result = await deleteAssetImage(projectId, assetType, assetId, imageId)
   if (!result.ok) return result
   refresh(projectId)
-  try {
-    await vercelBlobAssetStorage.remove(result.value.storageKey)
-  } catch {
-    console.error('asset_image_storage_cleanup_failed', {
-      projectId,
-      assetType,
-      assetId,
-      imageId,
-      storageProvider: 'vercel-blob',
-    })
-    return { ok: false, reason: 'delete_failed' }
-  }
+  await processAssetStorageDeletionJobs([result.value.cleanupJobId])
   return { ok: true }
 }
 

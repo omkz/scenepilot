@@ -163,6 +163,22 @@ export const assetImages = pgTable('asset_images', {
   index('asset_images_created_at_idx').on(table.createdAt),
 ])
 
+export const assetStorageDeletionJobs = pgTable('asset_storage_deletion_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  storageProvider: varchar('storage_provider', { length: 40 }).notNull(),
+  storageKey: text('storage_key').notNull(),
+  attemptCount: integer('attempt_count').default(0).notNull(),
+  lastErrorCode: varchar('last_error_code', { length: 80 }),
+  nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+}, table => [
+  index('asset_storage_deletion_jobs_pending_idx').on(table.completedAt, table.nextAttemptAt),
+  index('asset_storage_deletion_jobs_provider_idx').on(table.storageProvider),
+  index('asset_storage_deletion_jobs_created_at_idx').on(table.createdAt),
+])
+
 export const episodes = pgTable('episodes', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
@@ -372,6 +388,7 @@ export type CharacterRecord = typeof characters.$inferSelect
 export type CostumeRecord = typeof costumes.$inferSelect
 export type LocationRecord = typeof locations.$inferSelect
 export type AssetImageRecord = typeof assetImages.$inferSelect
+export type AssetStorageDeletionJobRecord = typeof assetStorageDeletionJobs.$inferSelect
 export type EpisodeRecord = typeof episodes.$inferSelect
 export type SceneRecord = typeof scenes.$inferSelect
 export type SceneCharacterRecord = typeof sceneCharacters.$inferSelect

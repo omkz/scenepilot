@@ -56,7 +56,7 @@ export default async function StoryStudioPage({ params, searchParams }: StoryStu
       costumes={costumes}
       locations={locations}
       assetImages={assetImages}
-      storageConfigured={getAssetStorageStatus().configured}
+      storageStatus={getAssetStorageStatus()}
       readiness={calculateAssetReadiness(activeCharacters, activeCostumes, activeLocations)}
       saved={query.saved === '1'}
       error={query.error}

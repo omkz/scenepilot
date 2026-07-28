@@ -52,6 +52,7 @@ export const costumeInputSchema = z.object({
   condition: z.enum(COSTUME_CONDITIONS).default('Clean'),
   isDefault: checkbox,
 })
+export const costumeUpdateInputSchema = costumeInputSchema.omit({ characterId: true })
 
 export const locationInputSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(120, 'Name must be 120 characters or fewer'),
@@ -76,4 +77,5 @@ export const assetStatusSchema = z.enum(ASSET_STATUSES)
 
 export type CharacterInput = z.infer<typeof characterInputSchema>
 export type CostumeInput = z.infer<typeof costumeInputSchema>
+export type CostumeUpdateInput = z.infer<typeof costumeUpdateInputSchema>
 export type LocationInput = z.infer<typeof locationInputSchema>

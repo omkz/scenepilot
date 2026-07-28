@@ -31,6 +31,7 @@ import {
   assetStatusSchema,
   characterInputSchema,
   costumeInputSchema,
+  costumeUpdateInputSchema,
   locationInputSchema,
 } from '@/lib/assets/validation'
 import type { StoryStudioTab } from '@/lib/assets/types'
@@ -68,6 +69,11 @@ function costumePayload(formData: FormData) {
     condition: text(formData, 'condition'),
     isDefault: text(formData, 'isDefault'),
   }
+}
+
+function costumeUpdatePayload(formData: FormData) {
+  const { characterId: _characterId, ...payload } = costumePayload(formData)
+  return payload
 }
 
 function locationPayload(formData: FormData) {
@@ -192,12 +198,12 @@ export async function updateCostumeAction(
   _state: AssetActionState,
   formData: FormData,
 ): Promise<AssetActionState> {
-  const result = costumeInputSchema.safeParse(costumePayload(formData))
+  const result = costumeUpdateInputSchema.safeParse(costumeUpdatePayload(formData))
   if (!result.success) return validationState(result.error)
   try {
     const updated = await updateCostume(projectId, costumeId, result.data)
     if (!updated.costume) {
-      return { message: updated.reason === 'invalid-character' ? 'Select a character from this project.' : 'Costume not found.' }
+      return { message: 'Costume not found.' }
     }
     revalidateAssets(projectId)
     redirect(studioPath(projectId, 'costumes', { saved: true, notice: updated.costume.assetCode }))

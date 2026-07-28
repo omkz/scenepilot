@@ -13,6 +13,11 @@ import {
 } from '@/lib/db/schema'
 import type { AssetDeleteResult, AssetStatus, AssetUsage, CharacterDto } from '@/lib/assets/types'
 import type { CharacterInput } from '@/lib/assets/validation'
+import {
+  collectAssetImageStorageObjects,
+  processAssetStorageDeletionJobs,
+  scheduleAssetStorageDeletionJobs,
+} from '@/lib/db/queries/asset-storage-deletion-jobs'
 
 function validIds(...ids: string[]) {
   return ids.every(id => z.uuid().safeParse(id).success)
@@ -109,11 +114,13 @@ export async function deleteCharacter(projectId: string, characterId: string): P
   if (!validIds(projectId, characterId)) return { deleted: false, reason: 'not-found' }
   let usage: AssetUsage = {}
   try {
-    return await getDatabase().transaction(async transaction => {
+    const outcome = await getDatabase().transaction(async transaction => {
       const [target] = await transaction.select({ id: characters.id }).from(characters)
         .where(and(eq(characters.projectId, projectId), eq(characters.id, characterId)))
         .limit(1).for('update')
-      if (!target) return { deleted: false, reason: 'not-found' } as const
+      if (!target) {
+        return { result: { deleted: false, reason: 'not-found' } as const, cleanupJobIds: [] }
+      }
       const [costumeUsage, sceneUsage, shotUsage] = await Promise.all([
         transaction.select({ value: count(costumes.id) }).from(costumes)
           .where(and(eq(costumes.projectId, projectId), eq(costumes.characterId, characterId))),
@@ -128,15 +135,26 @@ export async function deleteCharacter(projectId: string, characterId: string): P
         shots: Number(shotUsage[0].value),
       }
       if (Object.values(usage).some(value => value > 0)) {
-        return { deleted: false, reason: 'in-use', usage } as const
+        return { result: { deleted: false, reason: 'in-use', usage } as const, cleanupJobIds: [] }
       }
+      const storageObjects = await collectAssetImageStorageObjects(transaction, projectId, 'character', characterId)
       const [row] = await transaction.delete(characters)
         .where(and(eq(characters.projectId, projectId), eq(characters.id, characterId)))
         .returning({ id: characters.id })
-      return row
-        ? { deleted: true } as const
-        : { deleted: false, reason: 'not-found' } as const
+      const jobs = row
+        ? await scheduleAssetStorageDeletionJobs(transaction, storageObjects)
+        : []
+      return {
+        result: row
+          ? { deleted: true } as const
+          : { deleted: false, reason: 'not-found' } as const,
+        cleanupJobIds: row ? jobs.map(job => job.id) : [],
+      }
     })
+    if (outcome.cleanupJobIds.length) {
+      await processAssetStorageDeletionJobs(outcome.cleanupJobIds)
+    }
+    return outcome.result
   } catch (error) {
     if ((error as { code?: string }).code === '23503') {
       return { deleted: false, reason: 'in-use', usage }

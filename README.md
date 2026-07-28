@@ -32,18 +32,30 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scenepilot
 - `pnpm db:generate` — generate SQL migrations from `lib/db/schema.ts`.
 - `pnpm db:migrate` — apply pending migrations.
 - `pnpm db:studio` — open Drizzle Studio.
+- `pnpm storage:cleanup` — retry due asset-storage deletion jobs.
 
 Database access is server-only. Project, asset, episode, scene, and storyboard mutations use Server Actions with Zod validation and project-scoped query modules.
 
 ## Visual asset storage
 
-Character, Costume, and Location inspiration images use Vercel Blob. Connect a public Blob store to the Vercel project and configure:
+Character, Costume, and Location assets support up to five Inspiration images and one explicitly selected Master Reference.
+
+For local development, use:
 
 ```env
+ASSET_STORAGE_DRIVER=local
+```
+
+Uploads are written beneath `.data/uploads/asset-images`, served through a guarded application route, and ignored by Git. No Blob token is required. Deleting an image or unused asset records persistent cleanup jobs before removing local files; due jobs can be retried with `pnpm storage:cleanup`.
+
+For Vercel preview and production, connect a public Blob store and configure:
+
+```env
+ASSET_STORAGE_DRIVER=vercel-blob
 BLOB_READ_WRITE_TOKEN=
 ```
 
-Uploads use scoped client-upload tokens so images up to 10 MB do not pass through the Vercel Function request body. The server generates storage paths, validates project and asset scope, restricts uploads to JPEG, PNG, and WebP, verifies the stored file signature, and persists only object metadata in PostgreSQL. Each asset supports up to five inspiration images and one explicitly selected Master Reference. Missing images do not block Episode Outline or Scene Plan generation.
+Vercel uploads use scoped client-upload tokens and a verification callback so images up to 10 MB do not pass through the Vercel Function request body. Both drivers generate safe storage paths, validate project and asset scope, restrict uploads to JPEG, PNG, and WebP, verify file signatures, and persist only object metadata in PostgreSQL. Missing images do not block text AI workflows.
 
 ## AI episode outlines
 

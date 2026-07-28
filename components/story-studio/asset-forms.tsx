@@ -20,6 +20,7 @@ import {
   LOCATION_TYPES,
   NARRATIVE_ROLES,
   type AssetImageDto,
+  type AssetStorageStatusDto,
   type CharacterDto,
   type CostumeDto,
   type LocationDto,
@@ -84,10 +85,10 @@ interface CharacterFormSheetProps {
   projectId: string
   character?: CharacterDto
   images?: AssetImageDto[]
-  storageConfigured?: boolean
+  storageStatus?: AssetStorageStatusDto
 }
 
-export function CharacterFormSheet({ projectId, character, images = [], storageConfigured = false }: CharacterFormSheetProps) {
+export function CharacterFormSheet({ projectId, character, images = [], storageStatus }: CharacterFormSheetProps) {
   const action = character
     ? updateCharacterAction.bind(null, projectId, character.id)
     : createCharacterAction.bind(null, projectId)
@@ -173,7 +174,7 @@ export function CharacterFormSheet({ projectId, character, images = [], storageC
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
         {character
-          ? <AssetImageManager projectId={projectId} assetType="character" assetId={character.id} images={images} storageConfigured={storageConfigured} />
+          ? <AssetImageManager projectId={projectId} assetType="character" assetId={character.id} images={images} storageStatus={storageStatus} />
           : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>
@@ -185,10 +186,10 @@ interface CostumeFormSheetProps {
   characters: CharacterDto[]
   costume?: CostumeDto
   images?: AssetImageDto[]
-  storageConfigured?: boolean
+  storageStatus?: AssetStorageStatusDto
 }
 
-export function CostumeFormSheet({ projectId, characters, costume, images = [], storageConfigured = false }: CostumeFormSheetProps) {
+export function CostumeFormSheet({ projectId, characters, costume, images = [], storageStatus }: CostumeFormSheetProps) {
   const action = costume
     ? updateCostumeAction.bind(null, projectId, costume.id)
     : createCostumeAction.bind(null, projectId)
@@ -219,13 +220,19 @@ export function CostumeFormSheet({ projectId, characters, costume, images = [], 
         </SheetHeader>
         <form action={formAction} className="space-y-4 px-4 pb-6">
           <FormMessage state={state} />
-          <label className="block">
+          {costume ? <div className="rounded-lg border bg-muted/10 px-3 py-2.5">
+            <div className="text-xs font-medium">Character</div>
+            <div className="mt-1 text-xs text-muted-foreground">{costume.characterName}</div>
+            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+              Costume ownership cannot change because its Master Reference preserves this character&apos;s identity.
+            </p>
+          </div> : <label className="block">
             <span className="text-xs font-medium">Character</span>
-            <select name="characterId" defaultValue={costume?.characterId || characters[0]?.id} className={`${selectClassName} mt-1.5`}>
+            <select name="characterId" defaultValue={characters[0]?.id} className={`${selectClassName} mt-1.5`}>
               {characters.map(character => <option key={character.id} value={character.id}>{character.name} · {character.assetCode}</option>)}
             </select>
             <FieldError value={state.errors?.characterId} />
-          </label>
+          </label>}
           <label className="block">
             <span className="text-xs font-medium">Name</span>
             <Input name="name" defaultValue={costume?.name} maxLength={100} required className="mt-1.5" />
@@ -254,7 +261,7 @@ export function CostumeFormSheet({ projectId, characters, costume, images = [], 
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
         {costume
-          ? <AssetImageManager projectId={projectId} assetType="costume" assetId={costume.id} images={images} storageConfigured={storageConfigured} />
+          ? <AssetImageManager projectId={projectId} assetType="costume" assetId={costume.id} images={images} storageStatus={storageStatus} />
           : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>
@@ -265,10 +272,10 @@ interface LocationFormSheetProps {
   projectId: string
   location?: LocationDto
   images?: AssetImageDto[]
-  storageConfigured?: boolean
+  storageStatus?: AssetStorageStatusDto
 }
 
-export function LocationFormSheet({ projectId, location, images = [], storageConfigured = false }: LocationFormSheetProps) {
+export function LocationFormSheet({ projectId, location, images = [], storageStatus }: LocationFormSheetProps) {
   const action = location
     ? updateLocationAction.bind(null, projectId, location.id)
     : createLocationAction.bind(null, projectId)
@@ -347,7 +354,7 @@ export function LocationFormSheet({ projectId, location, images = [], storageCon
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
         {location
-          ? <AssetImageManager projectId={projectId} assetType="location" assetId={location.id} images={images} storageConfigured={storageConfigured} />
+          ? <AssetImageManager projectId={projectId} assetType="location" assetId={location.id} images={images} storageStatus={storageStatus} />
           : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>

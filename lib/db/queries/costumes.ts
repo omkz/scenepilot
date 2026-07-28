@@ -12,7 +12,12 @@ import {
   type CostumeRecord,
 } from '@/lib/db/schema'
 import type { AssetDeleteResult, AssetStatus, AssetUsage, CostumeDto } from '@/lib/assets/types'
-import type { CostumeInput } from '@/lib/assets/validation'
+import type { CostumeInput, CostumeUpdateInput } from '@/lib/assets/validation'
+import {
+  collectAssetImageStorageObjects,
+  processAssetStorageDeletionJobs,
+  scheduleAssetStorageDeletionJobs,
+} from '@/lib/db/queries/asset-storage-deletion-jobs'
 
 function validIds(...ids: string[]) {
   return ids.every(id => z.uuid().safeParse(id).success)
@@ -86,15 +91,17 @@ export async function createCostume(projectId: string, input: CostumeInput) {
   })
 }
 
-export async function updateCostume(projectId: string, costumeId: string, input: CostumeInput) {
-  if (!validIds(projectId, costumeId, input.characterId)) return { costume: null, reason: 'invalid-character' } as const
+export async function updateCostume(projectId: string, costumeId: string, input: CostumeUpdateInput) {
+  if (!validIds(projectId, costumeId)) return { costume: null, reason: 'not-found' } as const
   return getDatabase().transaction(async transaction => {
-    const [character] = await transaction
-      .select({ id: characters.id, name: characters.name })
-      .from(characters)
-      .where(and(eq(characters.projectId, projectId), eq(characters.id, input.characterId), isNull(characters.archivedAt)))
+    const [existing] = await transaction.select().from(costumes)
+      .where(and(eq(costumes.projectId, projectId), eq(costumes.id, costumeId), isNull(costumes.archivedAt)))
+      .limit(1).for('update')
+    if (!existing) return { costume: null, reason: 'not-found' } as const
+    const [character] = await transaction.select({ name: characters.name }).from(characters)
+      .where(and(eq(characters.projectId, projectId), eq(characters.id, existing.characterId)))
       .limit(1)
-    if (!character) return { costume: null, reason: 'invalid-character' } as const
+    if (!character) return { costume: null, reason: 'not-found' } as const
 
     if (input.isDefault) {
       await transaction
@@ -102,7 +109,7 @@ export async function updateCostume(projectId: string, costumeId: string, input:
         .set({ isDefault: false, updatedAt: new Date() })
         .where(and(
           eq(costumes.projectId, projectId),
-          eq(costumes.characterId, input.characterId),
+          eq(costumes.characterId, existing.characterId),
           eq(costumes.isDefault, true),
           ne(costumes.id, costumeId),
         ))
@@ -110,7 +117,7 @@ export async function updateCostume(projectId: string, costumeId: string, input:
 
     const [row] = await transaction
       .update(costumes)
-      .set({ ...input, updatedAt: new Date() })
+      .set({ ...input, characterId: existing.characterId, updatedAt: new Date() })
       .where(and(eq(costumes.projectId, projectId), eq(costumes.id, costumeId), isNull(costumes.archivedAt)))
       .returning()
     return row
@@ -184,11 +191,13 @@ export async function deleteCostume(projectId: string, costumeId: string): Promi
   if (!validIds(projectId, costumeId)) return { deleted: false, reason: 'not-found' }
   let usage: AssetUsage = {}
   try {
-    return await getDatabase().transaction(async transaction => {
+    const outcome = await getDatabase().transaction(async transaction => {
       const [target] = await transaction.select({ id: costumes.id }).from(costumes)
         .where(and(eq(costumes.projectId, projectId), eq(costumes.id, costumeId)))
         .limit(1).for('update')
-      if (!target) return { deleted: false, reason: 'not-found' } as const
+      if (!target) {
+        return { result: { deleted: false, reason: 'not-found' } as const, cleanupJobIds: [] }
+      }
       const [sceneUsage, shotUsage] = await Promise.all([
         transaction.select({ value: count(sceneCharacters.id) }).from(sceneCharacters)
           .where(and(eq(sceneCharacters.projectId, projectId), eq(sceneCharacters.costumeId, costumeId))),
@@ -200,15 +209,26 @@ export async function deleteCostume(projectId: string, costumeId: string): Promi
         shots: Number(shotUsage[0].value),
       }
       if (Object.values(usage).some(value => value > 0)) {
-        return { deleted: false, reason: 'in-use', usage } as const
+        return { result: { deleted: false, reason: 'in-use', usage } as const, cleanupJobIds: [] }
       }
+      const storageObjects = await collectAssetImageStorageObjects(transaction, projectId, 'costume', costumeId)
       const [row] = await transaction.delete(costumes)
         .where(and(eq(costumes.projectId, projectId), eq(costumes.id, costumeId)))
         .returning({ id: costumes.id })
-      return row
-        ? { deleted: true } as const
-        : { deleted: false, reason: 'not-found' } as const
+      const jobs = row
+        ? await scheduleAssetStorageDeletionJobs(transaction, storageObjects)
+        : []
+      return {
+        result: row
+          ? { deleted: true } as const
+          : { deleted: false, reason: 'not-found' } as const,
+        cleanupJobIds: row ? jobs.map(job => job.id) : [],
+      }
     })
+    if (outcome.cleanupJobIds.length) {
+      await processAssetStorageDeletionJobs(outcome.cleanupJobIds)
+    }
+    return outcome.result
   } catch (error) {
     if ((error as { code?: string }).code === '23503') {
       return { deleted: false, reason: 'in-use', usage }

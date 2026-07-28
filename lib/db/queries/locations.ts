@@ -6,6 +6,11 @@ import { getDatabase } from '@/lib/db'
 import { locations, projects, scenes, shots, type LocationRecord } from '@/lib/db/schema'
 import type { AssetDeleteResult, AssetStatus, AssetUsage, LocationDto } from '@/lib/assets/types'
 import type { LocationInput } from '@/lib/assets/validation'
+import {
+  collectAssetImageStorageObjects,
+  processAssetStorageDeletionJobs,
+  scheduleAssetStorageDeletionJobs,
+} from '@/lib/db/queries/asset-storage-deletion-jobs'
 
 function validIds(...ids: string[]) {
   return ids.every(id => z.uuid().safeParse(id).success)
@@ -92,11 +97,13 @@ export async function deleteLocation(projectId: string, locationId: string): Pro
   if (!validIds(projectId, locationId)) return { deleted: false, reason: 'not-found' }
   let usage: AssetUsage = {}
   try {
-    return await getDatabase().transaction(async transaction => {
+    const outcome = await getDatabase().transaction(async transaction => {
       const [target] = await transaction.select({ id: locations.id }).from(locations)
         .where(and(eq(locations.projectId, projectId), eq(locations.id, locationId)))
         .limit(1).for('update')
-      if (!target) return { deleted: false, reason: 'not-found' } as const
+      if (!target) {
+        return { result: { deleted: false, reason: 'not-found' } as const, cleanupJobIds: [] }
+      }
       const [sceneUsage, shotUsage] = await Promise.all([
         transaction.select({ value: count(scenes.id) }).from(scenes)
           .where(and(eq(scenes.projectId, projectId), eq(scenes.locationId, locationId))),
@@ -108,15 +115,26 @@ export async function deleteLocation(projectId: string, locationId: string): Pro
         shots: Number(shotUsage[0].value),
       }
       if (Object.values(usage).some(value => value > 0)) {
-        return { deleted: false, reason: 'in-use', usage } as const
+        return { result: { deleted: false, reason: 'in-use', usage } as const, cleanupJobIds: [] }
       }
+      const storageObjects = await collectAssetImageStorageObjects(transaction, projectId, 'location', locationId)
       const [row] = await transaction.delete(locations)
         .where(and(eq(locations.projectId, projectId), eq(locations.id, locationId)))
         .returning({ id: locations.id })
-      return row
-        ? { deleted: true } as const
-        : { deleted: false, reason: 'not-found' } as const
+      const jobs = row
+        ? await scheduleAssetStorageDeletionJobs(transaction, storageObjects)
+        : []
+      return {
+        result: row
+          ? { deleted: true } as const
+          : { deleted: false, reason: 'not-found' } as const,
+        cleanupJobIds: row ? jobs.map(job => job.id) : [],
+      }
     })
+    if (outcome.cleanupJobIds.length) {
+      await processAssetStorageDeletionJobs(outcome.cleanupJobIds)
+    }
+    return outcome.result
   } catch (error) {
     if ((error as { code?: string }).code === '23503') {
       return { deleted: false, reason: 'in-use', usage }

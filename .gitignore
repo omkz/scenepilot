@@ -9,6 +9,7 @@
 
 # production
 /build
+/.data/uploads/
 
 # debug
 npm-debug.log*
