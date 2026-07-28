@@ -3,7 +3,7 @@ import 'server-only'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDatabase } from '@/lib/db'
-import { aiGenerations, episodes, projects, type AIGenerationRecord } from '@/lib/db/schema'
+import { aiGenerations, episodes, projects, scenes, type AIGenerationRecord } from '@/lib/db/schema'
 import type { AIErrorCode } from '@/lib/ai/errors'
 import type { AIGenerationDto, ScenePilotAIResult } from '@/lib/ai/types'
 import type { PersistedEpisodeOutline } from '@/lib/ai/schemas/episode-outline'
@@ -26,18 +26,27 @@ function serialize(row: AIGenerationRecord): AIGenerationDto {
 export async function createAIGeneration(input: {
   projectId: string
   episodeId: string
+  sceneId?: string
   taskType: string
   provider: string
   model: string
   promptVersion: string
   inputSnapshot: Record<string, unknown>
 }) {
-  if (!valid(input.projectId, input.episodeId)) return null
-  const [[project], [episode]] = await Promise.all([
+  if (!valid(input.projectId, input.episodeId, ...(input.sceneId ? [input.sceneId] : []))) return null
+  const [[project], [episode], scene] = await Promise.all([
     getDatabase().select({ id: projects.id }).from(projects).where(and(eq(projects.id, input.projectId), isNull(projects.archivedAt))).limit(1),
     getDatabase().select({ id: episodes.id }).from(episodes).where(and(eq(episodes.projectId, input.projectId), eq(episodes.id, input.episodeId), isNull(episodes.archivedAt))).limit(1),
+    input.sceneId
+      ? getDatabase().select({ id: scenes.id }).from(scenes).where(and(
+          eq(scenes.projectId, input.projectId),
+          eq(scenes.episodeId, input.episodeId),
+          eq(scenes.id, input.sceneId),
+          isNull(scenes.archivedAt),
+        )).limit(1)
+      : Promise.resolve([{ id: 'episode-scope' }]),
   ])
-  if (!project || !episode) return null
+  if (!project || !episode || !scene[0]) return null
   const [row] = await getDatabase().insert(aiGenerations).values({
     ...input,
     status: 'Queued',
@@ -133,6 +142,122 @@ export async function listEpisodeGenerations(projectId: string, episodeId: strin
     ...conditions
   )).orderBy(desc(aiGenerations.createdAt))
   return rows.map(serialize)
+}
+
+export async function listSceneGenerations(
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+  taskType?: string,
+) {
+  if (!valid(projectId, episodeId, sceneId)) return []
+  const conditions = [
+    eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
+    eq(aiGenerations.sceneId, sceneId),
+  ]
+  if (taskType) conditions.push(eq(aiGenerations.taskType, taskType))
+  const rows = await getDatabase().select().from(aiGenerations)
+    .where(and(...conditions))
+    .orderBy(desc(aiGenerations.createdAt))
+  return rows.map(serialize)
+}
+
+export async function getSceneAIGeneration(
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+  generationId: string,
+  taskType?: string,
+) {
+  if (!valid(projectId, episodeId, sceneId, generationId)) return null
+  const conditions = [
+    eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
+    eq(aiGenerations.sceneId, sceneId),
+    eq(aiGenerations.id, generationId),
+  ]
+  if (taskType) conditions.push(eq(aiGenerations.taskType, taskType))
+  const [row] = await getDatabase().select().from(aiGenerations)
+    .where(and(...conditions)).limit(1)
+  return row ? serialize(row) : null
+}
+
+export async function markSceneAIGenerationRunning(
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+  generationId: string,
+) {
+  if (!valid(projectId, episodeId, sceneId, generationId)) return null
+  const [row] = await getDatabase().update(aiGenerations).set({
+    status: 'Running',
+    startedAt: new Date(),
+    errorCode: null,
+    errorMessage: null,
+    updatedAt: new Date(),
+  }).where(and(
+    eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
+    eq(aiGenerations.sceneId, sceneId),
+    eq(aiGenerations.id, generationId),
+    eq(aiGenerations.status, 'Queued'),
+  )).returning()
+  return row ? serialize(row) : null
+}
+
+export async function completeSceneAIGeneration<T>(
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+  generationId: string,
+  result: ScenePilotAIResult<T>,
+  output: T,
+) {
+  if (!valid(projectId, episodeId, sceneId, generationId)) return null
+  const [row] = await getDatabase().update(aiGenerations).set({
+    status: 'Completed',
+    output,
+    rawOutput: result.rawText || null,
+    inputTokens: result.usage?.inputTokens,
+    outputTokens: result.usage?.outputTokens,
+    totalTokens: result.usage?.totalTokens,
+    durationMs: result.durationMs,
+    completedAt: new Date(),
+    updatedAt: new Date(),
+  }).where(and(
+    eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
+    eq(aiGenerations.sceneId, sceneId),
+    eq(aiGenerations.id, generationId),
+    eq(aiGenerations.status, 'Running'),
+  )).returning()
+  return row ? serialize(row) : null
+}
+
+export async function failSceneAIGeneration(
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+  generationId: string,
+  error: { code: AIErrorCode; message: string; durationMs?: number },
+) {
+  if (!valid(projectId, episodeId, sceneId, generationId)) return null
+  const [row] = await getDatabase().update(aiGenerations).set({
+    status: 'Failed',
+    errorCode: error.code,
+    errorMessage: error.message,
+    durationMs: error.durationMs,
+    completedAt: new Date(),
+    updatedAt: new Date(),
+  }).where(and(
+    eq(aiGenerations.projectId, projectId),
+    eq(aiGenerations.episodeId, episodeId),
+    eq(aiGenerations.sceneId, sceneId),
+    eq(aiGenerations.id, generationId),
+    eq(aiGenerations.status, 'Running'),
+  )).returning()
+  return row ? serialize(row) : null
 }
 
 export async function markAIGenerationApplied(projectId: string, episodeId: string, generationId: string) {

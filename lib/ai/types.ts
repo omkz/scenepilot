@@ -34,6 +34,7 @@ export interface AIGenerationDto {
   id: string
   projectId: string
   episodeId: string | null
+  sceneId: string | null
   taskType: string
   provider: string
   model: string

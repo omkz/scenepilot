@@ -226,7 +226,9 @@ export const shots = pgTable('shots', {
   archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
 }, table => [
   uniqueIndex('shots_scene_number_unique').on(table.sceneId, table.shotNumber),
-  uniqueIndex('shots_scene_position_unique').on(table.sceneId, table.position),
+  uniqueIndex('shots_scene_active_position_unique')
+    .on(table.sceneId, table.position)
+    .where(sql`${table.archivedAt} is null`),
   index('shots_project_id_idx').on(table.projectId),
   index('shots_episode_id_idx').on(table.episodeId),
   index('shots_scene_id_idx').on(table.sceneId),
@@ -289,6 +291,7 @@ export const aiGenerations = pgTable('ai_generations', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   episodeId: uuid('episode_id').references(() => episodes.id, { onDelete: 'cascade' }),
+  sceneId: uuid('scene_id').references(() => scenes.id, { onDelete: 'cascade' }),
   taskType: varchar('task_type', { length: 60 }).notNull(),
   provider: varchar('provider', { length: 40 }).notNull(),
   model: varchar('model', { length: 100 }).notNull(),
@@ -312,6 +315,7 @@ export const aiGenerations = pgTable('ai_generations', {
 }, table => [
   index('ai_generations_project_id_idx').on(table.projectId),
   index('ai_generations_episode_id_idx').on(table.episodeId),
+  index('ai_generations_scene_id_idx').on(table.sceneId),
   index('ai_generations_task_type_idx').on(table.taskType),
   index('ai_generations_status_idx').on(table.status),
   index('ai_generations_created_at_idx').on(table.createdAt),

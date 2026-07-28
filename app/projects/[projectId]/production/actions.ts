@@ -3,6 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
+import { ScenePilotAIError } from '@/lib/ai/errors'
+import { shotListSchema } from '@/lib/ai/schemas/shot-list'
+import { generateSceneShotList } from '@/lib/ai/tasks/generate-shot-list'
 import { getProjectById } from '@/lib/db/queries/projects'
 import { listCharacters } from '@/lib/db/queries/characters'
 import { getLocation } from '@/lib/db/queries/locations'
@@ -30,6 +33,11 @@ import {
 } from '@/lib/db/queries/shot-characters'
 import { listShotCharacters } from '@/lib/db/queries/shot-characters'
 import { createCompletedStoryboardJob } from '@/lib/db/queries/storyboard-jobs'
+import {
+  saveAndApplyShotListGeneration,
+  updateShotListGenerationOutput,
+  type ShotListApplyMode,
+} from '@/lib/db/queries/shot-list-generations'
 import { checkShot } from '@/lib/continuity/check-shot'
 import { createBasicShotTemplates } from '@/lib/production/create-basic-shot-list'
 import { buildShotPrompt } from '@/lib/production/build-shot-prompt'
@@ -80,6 +88,24 @@ const workspace = (projectId: string, episodeId: string, sceneId?: string, notic
   if (notice) query.set('notice', notice)
   if (error) query.set('error', error)
   return `/projects/${projectId}/production/episodes/${episodeId}${query.size ? `?${query}` : ''}`
+}
+const shotListWorkspace = (
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+  values: {
+    generationId?: string
+    selectedShot?: string
+    notice?: string
+    error?: string
+  } = {},
+) => {
+  const query = new URLSearchParams({ scene: sceneId })
+  if (values.generationId) query.set('shotGeneration', values.generationId)
+  if (values.selectedShot) query.set('selectedShot', values.selectedShot)
+  if (values.notice) query.set('notice', values.notice)
+  if (values.error) query.set('error', values.error)
+  return `/projects/${projectId}/production/episodes/${episodeId}?${query}`
 }
 const refresh = (projectId: string, episodeId: string) => {
   revalidatePath(`/projects/${projectId}/production`)
@@ -302,4 +328,120 @@ export async function approveStoryboardAction(projectId: string, episodeId: stri
   await setStoryboardApproval(projectId, episodeId, 'Approved', true)
   refresh(projectId, episodeId)
   redirect(workspace(projectId, episodeId, undefined, 'storyboard-approved'))
+}
+
+export async function generateShotListAction(
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+) {
+  if (![projectId, episodeId, sceneId].every(id => z.uuid().safeParse(id).success)) {
+    redirect(workspace(projectId, episodeId, undefined, undefined, 'invalid-shot-list-scope'))
+  }
+  try {
+    const result = await generateSceneShotList({ projectId, episodeId, sceneId })
+    refresh(projectId, episodeId)
+    redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+      generationId: result.generation.id,
+      notice: 'shot-list-generated',
+    }))
+  } catch (error) {
+    rethrowRedirect(error)
+    redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+      error: error instanceof ScenePilotAIError ? error.code : 'AI_UNKNOWN_ERROR',
+    }))
+  }
+}
+
+export async function updateShotListPreviewAction(
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+  generationId: string,
+  formData: FormData,
+) {
+  if (![projectId, episodeId, sceneId, generationId].every(id => z.uuid().safeParse(id).success)) {
+    redirect(shotListWorkspace(projectId, episodeId, sceneId, { error: 'invalid_output' }))
+  }
+  try {
+    const parsedJson = JSON.parse(String(formData.get('shotList') || ''))
+    const parsed = shotListSchema.safeParse(parsedJson)
+    if (!parsed.success) {
+      redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+        generationId,
+        error: 'invalid_output',
+      }))
+    }
+    const output = await updateShotListGenerationOutput({
+      projectId,
+      episodeId,
+      sceneId,
+      generationId,
+      input: parsed.data,
+    })
+    if (!output) {
+      redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+        generationId,
+        error: 'not_found',
+      }))
+    }
+    refresh(projectId, episodeId)
+    redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+      generationId,
+      notice: 'shot-list-preview-saved',
+    }))
+  } catch (error) {
+    rethrowRedirect(error)
+    redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+      generationId,
+      error: 'invalid_output',
+    }))
+  }
+}
+
+export async function applyShotListAction(
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+  generationId: string,
+  mode: ShotListApplyMode,
+  formData: FormData,
+) {
+  if (
+    (mode !== 'append' && mode !== 'replace')
+    || ![projectId, episodeId, sceneId, generationId].every(id => z.uuid().safeParse(id).success)
+  ) {
+    redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+      generationId,
+      error: 'invalid_output',
+    }))
+  }
+  try {
+    const input = JSON.parse(String(formData.get('shotList') || ''))
+    const result = await saveAndApplyShotListGeneration({
+      projectId,
+      episodeId,
+      sceneId,
+      generationId,
+      mode,
+      input,
+    })
+    if (!result.ok) {
+      redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+        generationId,
+        error: result.reason,
+      }))
+    }
+    refresh(projectId, episodeId)
+    redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+      selectedShot: result.createdShotIds[0],
+      notice: 'shot-list-applied',
+    }))
+  } catch (error) {
+    rethrowRedirect(error)
+    redirect(shotListWorkspace(projectId, episodeId, sceneId, {
+      generationId,
+      error: 'apply_failed',
+    }))
+  }
 }

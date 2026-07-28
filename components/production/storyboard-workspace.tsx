@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useRef } from 'react'
 import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Clapperboard, Copy, Film, Lock, MapPin, RefreshCw, Sparkles, Trash2, Unlock, Users } from 'lucide-react'
 import {
   approveStoryboardAction,
@@ -18,12 +19,14 @@ import {
   setShotApprovalAction,
 } from '@/app/projects/[projectId]/production/actions'
 import type { CostumeDto, LocationDto } from '@/lib/assets/types'
+import type { AIGenerationDto } from '@/lib/ai/types'
 import type { ShotIssue } from '@/lib/continuity/check-shot'
 import type { EpisodeDto, SceneCharacterDto, SceneDto } from '@/lib/episodes/types'
 import type { EpisodeStoryboardReadiness } from '@/lib/production/readiness'
 import type { ShotCharacterDto, ShotDto, StoryboardJobDto } from '@/lib/production/types'
 import { cn } from '@/lib/utils'
 import { AddSceneCharactersSheet, ShotCharacterSheet, ShotFormSheet } from '@/components/production/shot-forms'
+import { AIShotListPanel } from '@/components/production/ai-shot-list-panel'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
@@ -48,6 +51,11 @@ export function StoryboardWorkspace({
   issues,
   jobs,
   archivedShots,
+  shotListHistory,
+  selectedShotGeneration,
+  aiConfigured,
+  selectedShotId,
+  notice,
   error,
 }: {
   projectId: string
@@ -62,8 +70,24 @@ export function StoryboardWorkspace({
   issues: ShotIssue[]
   jobs: StoryboardJobDto[]
   archivedShots: ShotDto[]
+  shotListHistory: AIGenerationDto[]
+  selectedShotGeneration: AIGenerationDto | null
+  aiConfigured: boolean
+  selectedShotId?: string
+  notice?: string
   error?: string
 }) {
+  const scrolledShot = useRef<string | null>(null)
+  useEffect(() => {
+    if (!selectedShotId || scrolledShot.current === selectedShotId) return
+    const element = document.getElementById(`shot-${selectedShotId}`)
+    if (!element) return
+    scrolledShot.current = selectedShotId
+    element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const url = new URL(window.location.href)
+    url.searchParams.delete('selectedShot')
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`)
+  }, [selectedShotId])
   const sceneReadiness = readiness.scenes.find(item => item.scene.id === selectedScene.id)
   const shots = sceneReadiness?.shots || []
   const approvalBlocked = !readiness.readyForApproval
@@ -81,11 +105,27 @@ export function StoryboardWorkspace({
       <main className="space-y-4">
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"><div><div className="text-[10px] text-amber-400">Scene {selectedScene.sceneNumber}</div><h2 className="text-sm font-semibold">{selectedScene.title}</h2><div className="mt-1 text-[11px] text-muted-foreground">{selectedScene.targetDurationSeconds}s target · {selectedScene.locationCode || 'No location'} · {sceneCharacters.length} scene characters</div></div><div className="flex gap-2">{shots.length === 0 && <form action={createBasicShotListAction.bind(null, projectId, episode.id, selectedScene.id)}><Button type="submit" variant="outline"><Clapperboard size={11} /> Create Basic Shot List</Button></form>}<ShotFormSheet projectId={projectId} episodeId={episode.id} scene={selectedScene} locations={locations} /></div></section>
 
+        <AIShotListPanel
+          projectId={projectId}
+          episodeId={episode.id}
+          scene={selectedScene}
+          sceneCharacters={sceneCharacters}
+          costumes={costumes}
+          activeShotCount={shots.length}
+          history={shotListHistory}
+          selectedGeneration={selectedShotGeneration}
+          aiConfigured={aiConfigured}
+          hasPreviousScene={scenes.findIndex(item => item.id === selectedScene.id) > 0}
+          hasNextScene={scenes.findIndex(item => item.id === selectedScene.id) < scenes.length - 1}
+          notice={notice}
+          error={error}
+        />
+
         {shots.length === 0 ? <div className="rounded-2xl border border-dashed p-16 text-center"><Film size={24} className="mx-auto mb-3 text-amber-400" /><h3 className="text-sm font-semibold">No shots in this scene</h3><p className="mx-auto mt-2 max-w-md text-xs text-muted-foreground">Create a shot manually or start with three deterministic draft shots.</p></div> : shots.map((shot, index) => {
           const assignments = shotAssignments.filter(item => item.shotId === shot.id)
           const shotIssues = issues.filter(item => item.shotId === shot.id)
           const job = jobs.find(item => item.shotId === shot.id && item.status === 'Completed')
-          return <article key={shot.id} className="rounded-xl border bg-card p-4">
+          return <article id={`shot-${shot.id}`} key={shot.id} className={cn('rounded-xl border bg-card p-4', selectedShotId === shot.id && 'border-amber-400 bg-amber-500/5')}>
             <div className="grid gap-4 xl:grid-cols-[230px_1fr]">
               <div className="relative flex min-h-40 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-slate-950 via-amber-950/40 to-slate-900 p-4">
                 <div className="absolute inset-4 border border-white/10" /><div className="relative flex justify-between text-[10px]"><span>{shot.shotType}</span><span>{shot.locationCode || 'NO LOCATION'}</span></div><div className="relative text-center"><div className="text-2xl font-black text-white/10">{assignments.length || '—'}</div><div className="text-[9px] text-white/40">CHARACTER BLOCKS · {shot.cameraAngle}</div></div><div className="relative text-[9px] text-white/50">{job ? 'STORYBOARD PLACEHOLDER · NOT AI-GENERATED' : 'ABSTRACT FRAMING PREVIEW'}</div>

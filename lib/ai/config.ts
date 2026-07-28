@@ -15,6 +15,13 @@ export const AI_TASK_CONFIG = {
     maxOutputTokens: 6000,
     promptVersion: 'scene-plan-v1',
   },
+  shotList: {
+    provider: process.env.AI_DEFAULT_PROVIDER || 'qwen',
+    model: process.env.AI_DEFAULT_MODEL || 'qwen-plus',
+    temperature: 0.55,
+    maxOutputTokens: 8000,
+    promptVersion: 'shot-list-v1',
+  },
 } as const
 
 export function getAIProviderConfigurationStatus(providerId: string) {
