@@ -6,6 +6,7 @@ import type { AssetStorage } from '@/lib/storage/asset-storage'
 
 const LOCAL_ASSET_KEY_PATTERN = /^asset-images\/[0-9a-f-]{36}\/(character|costume|location)\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i
 const LOCAL_STORYBOARD_KEY_PATTERN = /^storyboard-images\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i
+const LOCAL_PRODUCTION_KEY_PATTERN = /^production-media\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|mp4)$/i
 
 export function getLocalAssetStorageRoot() {
   const configuredRoot = process.env.ASSET_LOCAL_STORAGE_ROOT
@@ -19,9 +20,13 @@ export function getLocalAssetStorageRoot() {
 }
 
 export function validateLocalAssetStorageKey(key: string) {
-  const expectedSegments = key.startsWith('storyboard-images/') ? 6 : 5
+  const expectedSegments = key.startsWith('asset-images/') ? 5 : 6
   if (
-    (!LOCAL_ASSET_KEY_PATTERN.test(key) && !LOCAL_STORYBOARD_KEY_PATTERN.test(key))
+    (
+      !LOCAL_ASSET_KEY_PATTERN.test(key)
+      && !LOCAL_STORYBOARD_KEY_PATTERN.test(key)
+      && !LOCAL_PRODUCTION_KEY_PATTERN.test(key)
+    )
     || key.includes('\\')
     || key.includes('\0')
   ) return false
@@ -34,12 +39,14 @@ export function validateLocalAssetStorageKey(key: string) {
 export function resolveLocalAssetPath(key: string, root = getLocalAssetStorageRoot()) {
   if (!validateLocalAssetStorageKey(key)) throw new Error('INVALID_LOCAL_ASSET_KEY')
   const storyboard = key.startsWith('storyboard-images/')
-  const targetRoot = storyboard
+  const production = key.startsWith('production-media/')
+  const collection = production ? 'production-media' : storyboard ? 'storyboard-images' : 'asset-images'
+  const targetRoot = collection !== 'asset-images'
     ? path.basename(root) === 'asset-images'
-      ? path.join(path.dirname(root), 'storyboard-images')
-      : path.join(root, 'storyboard-images')
+      ? path.join(path.dirname(root), collection)
+      : path.join(root, collection)
     : root
-  const prefix = storyboard ? 'storyboard-images/' : 'asset-images/'
+  const prefix = `${collection}/`
   const relativeKey = key.slice(prefix.length)
   const resolved = path.resolve(targetRoot, relativeKey)
   const relative = path.relative(targetRoot, resolved)
@@ -54,6 +61,13 @@ export function localAssetUrl(key: string) {
   return `/api/local-assets/${key.split('/').map(encodeURIComponent).join('/')}`
 }
 
+export function localMediaUrl(key: string) {
+  if (!LOCAL_PRODUCTION_KEY_PATTERN.test(key) || !validateLocalAssetStorageKey(key)) {
+    throw new Error('INVALID_LOCAL_ASSET_KEY')
+  }
+  return `/api/local-media/${key.split('/').map(encodeURIComponent).join('/')}`
+}
+
 export function createLocalAssetStorage(root = getLocalAssetStorageRoot()): AssetStorage {
   return {
     async upload(input) {
@@ -63,7 +77,9 @@ export function createLocalAssetStorage(root = getLocalAssetStorageRoot()): Asse
       return {
         provider: 'local',
         key: input.storageKey,
-        url: localAssetUrl(input.storageKey),
+        url: input.storageKey.startsWith('production-media/')
+          ? localMediaUrl(input.storageKey)
+          : localAssetUrl(input.storageKey),
       }
     },
     async remove(key) {
@@ -81,5 +97,6 @@ export function localAssetContentType(key: string) {
   if (key.toLowerCase().endsWith('.jpg')) return 'image/jpeg'
   if (key.toLowerCase().endsWith('.png')) return 'image/png'
   if (key.toLowerCase().endsWith('.webp')) return 'image/webp'
+  if (key.toLowerCase().endsWith('.mp4')) return 'video/mp4'
   return null
 }

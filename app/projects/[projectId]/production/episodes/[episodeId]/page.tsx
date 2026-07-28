@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { AI_TASK_CONFIG, getAIProviderConfigurationStatus } from '@/lib/ai/config'
 import { getImageAIStatus } from '@/lib/ai/image/image-provider'
+import { getVideoAIStatus } from '@/lib/ai/video/video-provider'
 import { AI_TASK_TYPES } from '@/lib/ai/task-types'
 import { getSceneAIGeneration, listSceneGenerations } from '@/lib/db/queries/ai-generations'
 import { getEpisode } from '@/lib/db/queries/episodes'
@@ -57,6 +58,8 @@ export default async function ProductionEpisodePage({
       : Promise.resolve(null),
   ])
   const issues = readiness.scenes.flatMap(item => item.issues)
+  const imageAIStatus = getImageAIStatus()
+  const videoAIStatus = getVideoAIStatus()
   return <StoryboardWorkspace
     projectId={projectId}
     episode={episode}
@@ -73,7 +76,8 @@ export default async function ProductionEpisodePage({
     shotListHistory={shotListHistory}
     selectedShotGeneration={selectedShotGeneration}
     aiConfigured={getAIProviderConfigurationStatus(AI_TASK_CONFIG.shotList.provider).configured}
-    imageAIStatus={getImageAIStatus()}
+    imageAIStatus={imageAIStatus}
+    videoAIStatus={videoAIStatus}
     selectedShotId={query.selectedShot}
     notice={query.notice}
     error={query.error}

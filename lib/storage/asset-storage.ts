@@ -110,3 +110,24 @@ export function createStoryboardStorageKey(
   const normalizedExtension = extension === 'jpeg' ? 'jpg' : extension
   return `storyboard-images/${projectId}/${episodeId}/${sceneId}/${shotId}/${randomUUID()}.${normalizedExtension}`
 }
+
+export function createProductionMediaStorageKey(input: {
+  projectId: string
+  episodeId: string
+  sceneId: string
+  shotId: string
+  type: 'keyframe' | 'video'
+  extension: string
+}) {
+  const identifiers = [input.projectId, input.episodeId, input.sceneId, input.shotId]
+  if (!identifiers.every(value => /^[0-9a-f-]{36}$/i.test(value))) {
+    throw new AssetStorageConfigurationError('Invalid production media scope')
+  }
+  const extension = input.extension.toLowerCase().replace(/^\./, '')
+  const allowed = input.type === 'video'
+    ? extension === 'mp4'
+    : ['jpg', 'jpeg', 'png', 'webp'].includes(extension)
+  if (!allowed) throw new AssetStorageConfigurationError('Unsupported production media extension')
+  const normalizedExtension = extension === 'jpeg' ? 'jpg' : extension
+  return `production-media/${input.projectId}/${input.episodeId}/${input.sceneId}/${input.shotId}/${randomUUID()}.${normalizedExtension}`
+}

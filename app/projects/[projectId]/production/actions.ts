@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { ScenePilotAIError } from '@/lib/ai/errors'
 import { ImageAIError } from '@/lib/ai/image/errors'
 import { generateStoryboardImage } from '@/lib/ai/image/storyboard-image-service'
+import { VideoAIError } from '@/lib/ai/video/errors'
+import { startShotVideoGeneration } from '@/lib/ai/video/shot-video-service'
 import { shotListSchema } from '@/lib/ai/schemas/shot-list'
 import { generateSceneShotList } from '@/lib/ai/tasks/generate-shot-list'
 import { getProjectById } from '@/lib/db/queries/projects'
@@ -337,9 +339,14 @@ export async function generateStoryboardImageAction(
     redirect(workspace(projectId, episodeId, undefined, undefined, 'storyboard-image-invalid-assets'))
   }
   try {
-    const job = await generateStoryboardImage({ projectId, episodeId, shotId })
+    const result = await generateStoryboardImage({
+      projectId,
+      episodeId,
+      shotId,
+      forceRegenerate: true,
+    })
     refresh(projectId, episodeId)
-    redirect(shotListWorkspace(projectId, episodeId, job.sceneId, {
+    redirect(shotListWorkspace(projectId, episodeId, result.job.sceneId, {
       selectedShot: shotId,
       notice: 'storyboard-image-generated',
     }))
@@ -355,6 +362,43 @@ export async function generateStoryboardImageAction(
           : reason === 'generation_timeout'
             ? 'storyboard-image-timeout'
             : 'storyboard-image-failed'
+    refresh(projectId, episodeId)
+    redirect(shotListWorkspace(projectId, episodeId, shot.sceneId, {
+      selectedShot: shotId,
+      error: errorCode,
+    }))
+  }
+}
+
+export async function generateShotVideoAction(
+  projectId: string,
+  episodeId: string,
+  shotId: string,
+) {
+  if (![projectId, episodeId, shotId].every(id => z.uuid().safeParse(id).success)) {
+    redirect(workspace(projectId, episodeId, undefined, undefined, 'video-invalid-assets'))
+  }
+  const shot = await getShot(projectId, episodeId, shotId)
+  if (!shot) redirect(workspace(projectId, episodeId, undefined, undefined, 'video-invalid-assets'))
+  try {
+    await startShotVideoGeneration({ projectId, episodeId, shotId })
+    refresh(projectId, episodeId)
+    redirect(shotListWorkspace(projectId, episodeId, shot.sceneId, {
+      selectedShot: shotId,
+      notice: 'video-generation-started',
+    }))
+  } catch (error) {
+    rethrowRedirect(error)
+    const reason = error instanceof VideoAIError ? error.reason : 'submit_failed'
+    const errorCode = reason === 'provider_not_configured' || reason === 'storage_unavailable'
+      ? 'video-ai-not-configured'
+      : reason === 'keyframe_failed'
+        ? 'video-keyframe-failed'
+        : reason === 'invalid_assets' || reason === 'invalid_scope'
+          ? 'video-invalid-assets'
+          : reason === 'job_already_running'
+            ? 'video-generation-already-running'
+            : 'video-submit-failed'
     refresh(projectId, episodeId)
     redirect(shotListWorkspace(projectId, episodeId, shot.sceneId, {
       selectedShot: shotId,

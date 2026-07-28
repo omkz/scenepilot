@@ -13,6 +13,7 @@ export async function GET(
   if (status.driver !== 'local') return new Response(null, { status: 404 })
   const segments = (await params).path
   const key = segments.join('/')
+  if (key.startsWith('production-media/')) return new Response(null, { status: 404 })
   const contentType = localAssetContentType(key)
   if (!contentType || !validateLocalAssetStorageKey(key)) {
     return new Response(null, { status: 404 })

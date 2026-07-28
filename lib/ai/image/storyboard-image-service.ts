@@ -30,11 +30,12 @@ import {
   completeStoryboardImageJob,
   createStoryboardImageJob,
   failStoryboardImageJob,
+  listStoryboardJobs,
   markStoryboardImageJobGenerating,
 } from '@/lib/db/queries/storyboard-jobs'
 import { buildShotPrompt } from '@/lib/production/build-shot-prompt'
 import {
-  createStoryboardStorageKey,
+  createProductionMediaStorageKey,
   getAssetStorage,
   type AssetStorage,
 } from '@/lib/storage/asset-storage'
@@ -48,9 +49,11 @@ const inputSchema = z.object({
 })
 
 const renderingInstruction = [
-  'Render as a polished cinematic storyboard frame with realistic physical textures,',
-  'coherent anatomy, readable faces, controlled exposure, and no text or watermark.',
-  'Preserve the supplied Master Reference identities and environment design.',
+  'Render one polished cinematic first frame for an image-to-video workflow.',
+  'Preserve the supplied character identity, costume design, environment design,',
+  'camera composition, physical proportions, lighting direction, and historical',
+  'material details. Use realistic textures, coherent anatomy, readable faces,',
+  'controlled exposure, and no text or watermark.',
 ].join(' ')
 
 interface SelectedReference {
@@ -87,12 +90,41 @@ export async function generateStoryboardImage(rawInput: {
   projectId: string
   episodeId: string
   shotId: string
+  forceRegenerate?: boolean
 }) {
   const parsed = inputSchema.safeParse(rawInput)
   if (!parsed.success) {
     throw new ImageAIError('asset_not_found', 'The storyboard shot could not be found.')
   }
   const { projectId, episodeId, shotId } = parsed.data
+  if (!rawInput.forceRegenerate) {
+    const existing = (await listStoryboardJobs(projectId, episodeId, shotId))
+      .find(job => job.jobType === 'Storyboard Image' && job.status === 'Completed')
+    const output = existing?.outputPlaceholder as Record<string, unknown> | null
+    if (
+      existing
+      && output?.kind === 'Storyboard Image'
+      && typeof output.storageProvider === 'string'
+      && typeof output.storageKey === 'string'
+      && typeof output.storageUrl === 'string'
+      && typeof output.mimeType === 'string'
+    ) {
+      return {
+        job: existing,
+        keyframe: {
+          jobId: existing.id,
+          storageProvider: output.storageProvider,
+          storageKey: output.storageKey,
+          storageUrl: output.storageUrl,
+          mimeType: output.mimeType,
+          sizeBytes: typeof output.sizeBytes === 'number' ? output.sizeBytes : null,
+          width: typeof output.width === 'number' ? output.width : null,
+          height: typeof output.height === 'number' ? output.height : null,
+        },
+        reused: true,
+      }
+    }
+  }
   const config = readImageAIConfig()
   let storage: AssetStorage
   try {
@@ -292,13 +324,14 @@ export async function generateStoryboardImage(rawInput: {
     const extension = validation.mimeType === 'image/jpeg'
       ? 'jpg'
       : validation.mimeType.split('/')[1]
-    const storageKey = createStoryboardStorageKey(
+    const storageKey = createProductionMediaStorageKey({
       projectId,
       episodeId,
-      scene.id,
-      shot.id,
-      `storyboard.${extension}`,
-    )
+      sceneId: scene.id,
+      shotId: shot.id,
+      type: 'keyframe',
+      extension,
+    })
     let uploaded: Awaited<ReturnType<AssetStorage['upload']>>
     try {
       uploaded = await storage.upload({
@@ -347,7 +380,20 @@ export async function generateStoryboardImage(rawInput: {
       durationMs: generated.durationMs,
       referenceImageCount: referenceImageUrls.length,
     })
-    return completed
+    return {
+      job: completed,
+      keyframe: {
+        jobId: completed.id,
+        storageProvider: uploaded.provider,
+        storageKey: uploaded.key,
+        storageUrl: uploaded.url,
+        mimeType: validation.mimeType,
+        sizeBytes: bytes.byteLength,
+        width: output.width,
+        height: output.height,
+      },
+      reused: false,
+    }
   } catch (error) {
     if (stored) await cleanupStoredImage(stored.provider, stored.key)
     try {
@@ -375,4 +421,13 @@ export async function generateStoryboardImage(rawInput: {
       'Storyboard image generation could not be completed.',
     )
   }
+}
+
+export function generateStoryboardKeyframe(input: {
+  projectId: string
+  episodeId: string
+  shotId: string
+  forceRegenerate?: boolean
+}) {
+  return generateStoryboardImage(input)
 }
