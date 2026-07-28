@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDatabase } from '@/lib/db'
 import { characters, costumes, sceneCharacters, shotCharacters, shots } from '@/lib/db/schema'
@@ -22,6 +22,7 @@ export async function listShotCharacters(projectId: string, episodeId: string, s
     .innerJoin(characters, and(eq(shotCharacters.characterId, characters.id), eq(characters.projectId, projectId)))
     .leftJoin(costumes, and(eq(shotCharacters.costumeId, costumes.id), eq(costumes.projectId, projectId)))
     .where(and(...conditions))
+    .orderBy(asc(shotCharacters.createdAt), asc(shotCharacters.id))
   return rows.map(({ assignment, character, costume }): ShotCharacterDto => ({
     ...assignment,
     characterName: character.name,

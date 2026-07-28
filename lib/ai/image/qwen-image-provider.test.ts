@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ImageAIError } from '@/lib/ai/image/errors'
 import { createQwenImageProvider } from '@/lib/ai/image/qwen-image-provider'
 
 const baseConfig = {
@@ -13,7 +12,7 @@ const baseConfig = {
 
 describe('Qwen image provider', () => {
   it('normalizes a synchronous multi-image response', async () => {
-    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
       output: {
         choices: [{
           message: {
@@ -66,6 +65,38 @@ describe('Qwen image provider', () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 
+  it('generates exactly one storyboard image with storyboard parameters', async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
+      output: {
+        choices: [{
+          message: {
+            content: [{ image: 'https://example.aliyuncs.com/storyboard.png' }],
+          },
+        }],
+      },
+    }), { status: 200 }))
+    const provider = createQwenImageProvider(baseConfig, { fetcher })
+    const result = await provider.generateStoryboardImage({
+      prompt: 'Storyboard frame',
+      negativePrompt: 'overexposed',
+      referenceImageUrls: [
+        'https://assets.example.com/character.png',
+        'https://assets.example.com/costume.png',
+        'https://assets.example.com/location.png',
+      ],
+      orientation: 'Landscape 16:9',
+    })
+    expect(result.images).toHaveLength(1)
+    const request = JSON.parse(String(fetcher.mock.calls[0][1]?.body))
+    expect(request.parameters).toEqual(expect.objectContaining({
+      n: 1,
+      size: '1472*1104',
+      prompt_extend: true,
+      watermark: false,
+    }))
+    expect(request.parameters.negative_prompt).toContain('overexposed')
+  })
+
   it('rejects empty provider responses', async () => {
     const provider = createQwenImageProvider(baseConfig, {
       fetcher: async () => new Response(JSON.stringify({
@@ -97,8 +128,8 @@ describe('Qwen image provider', () => {
       prompt: 'Original portrait',
       referenceImageUrls: [],
       candidateCount: 1,
-    })).rejects.toEqual(expect.objectContaining<ImageAIError>({
+    })).rejects.toMatchObject({
       reason: 'generation_timeout',
-    }))
+    })
   })
 })

@@ -41,6 +41,8 @@ import {
   type AssetStorage,
 } from '@/lib/storage/asset-storage'
 
+export const GENERATED_IMAGE_MAX_BYTES = 20 * 1024 * 1024
+
 const inputSchema = z.object({
   projectId: z.uuid(),
   assetType: z.enum(['character', 'costume', 'location']),
@@ -75,7 +77,6 @@ export async function downloadGeneratedConcept(
   image: GeneratedConceptImage,
   fetcher: typeof fetch = fetch,
 ) {
-  const maximumGeneratedImageBytes = 20 * 1024 * 1024
   if (image.bytes) return image.bytes
   if (!image.url || !isAllowedProviderUrl(image.url)) {
     throw new ImageAIError('generation_failed', 'The provider returned an unsafe image URL.')
@@ -88,11 +89,11 @@ export async function downloadGeneratedConcept(
     throw new ImageAIError('generation_failed', 'The provider image could not be downloaded.')
   }
   const contentLength = Number(response.headers.get('content-length') || 0)
-  if (contentLength > maximumGeneratedImageBytes) {
+  if (contentLength > GENERATED_IMAGE_MAX_BYTES) {
     throw new ImageAIError('generation_failed', 'The provider image is too large.')
   }
   const bytes = new Uint8Array(await response.arrayBuffer())
-  if (bytes.byteLength > maximumGeneratedImageBytes) {
+  if (bytes.byteLength > GENERATED_IMAGE_MAX_BYTES) {
     throw new ImageAIError('generation_failed', 'The provider image is too large.')
   }
   return bytes
@@ -254,6 +255,8 @@ export async function generateAssetConcepts(
       const validation = validateAssetImage({
         bytes,
         claimedMimeType: image.mimeType,
+        maximumBytes: GENERATED_IMAGE_MAX_BYTES,
+        allowMimeTypeMismatch: true,
       })
       if (!validation.valid) {
         throw new ImageAIError('generation_failed', 'The provider returned an invalid image.')

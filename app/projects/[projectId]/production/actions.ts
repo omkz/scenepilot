@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { ScenePilotAIError } from '@/lib/ai/errors'
+import { ImageAIError } from '@/lib/ai/image/errors'
+import { generateStoryboardImage } from '@/lib/ai/image/storyboard-image-service'
 import { shotListSchema } from '@/lib/ai/schemas/shot-list'
 import { generateSceneShotList } from '@/lib/ai/tasks/generate-shot-list'
 import { getProjectById } from '@/lib/db/queries/projects'
@@ -320,6 +322,45 @@ export async function createStoryboardPlaceholderAction(projectId: string, episo
   })
   refresh(projectId, episodeId)
   redirect(workspace(projectId, episodeId, shot.sceneId, 'placeholder-created'))
+}
+
+export async function generateStoryboardImageAction(
+  projectId: string,
+  episodeId: string,
+  shotId: string,
+) {
+  if (![projectId, episodeId, shotId].every(id => z.uuid().safeParse(id).success)) {
+    redirect(workspace(projectId, episodeId, undefined, undefined, 'storyboard-image-invalid-assets'))
+  }
+  const shot = await getShot(projectId, episodeId, shotId)
+  if (!shot) {
+    redirect(workspace(projectId, episodeId, undefined, undefined, 'storyboard-image-invalid-assets'))
+  }
+  try {
+    const job = await generateStoryboardImage({ projectId, episodeId, shotId })
+    refresh(projectId, episodeId)
+    redirect(shotListWorkspace(projectId, episodeId, job.sceneId, {
+      selectedShot: shotId,
+      notice: 'storyboard-image-generated',
+    }))
+  } catch (error) {
+    rethrowRedirect(error)
+    const reason = error instanceof ImageAIError ? error.reason : 'generation_failed'
+    const errorCode = reason === 'provider_not_configured' || reason === 'storage_unavailable'
+      ? 'storyboard-image-not-configured'
+      : reason === 'storyboard_missing_master'
+        ? 'storyboard-image-missing-master'
+        : reason === 'storyboard_invalid_assets' || reason === 'asset_not_found' || reason === 'asset_archived'
+          ? 'storyboard-image-invalid-assets'
+          : reason === 'generation_timeout'
+            ? 'storyboard-image-timeout'
+            : 'storyboard-image-failed'
+    refresh(projectId, episodeId)
+    redirect(shotListWorkspace(projectId, episodeId, shot.sceneId, {
+      selectedShot: shotId,
+      error: errorCode,
+    }))
+  }
 }
 
 export async function approveStoryboardAction(projectId: string, episodeId: string) {

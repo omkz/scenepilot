@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
+import { useFormStatus } from 'react-dom'
 import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Clapperboard, Copy, Film, Lock, MapPin, RefreshCw, Sparkles, Trash2, Unlock, Users } from 'lucide-react'
 import {
   approveStoryboardAction,
@@ -11,6 +12,7 @@ import {
   createStoryboardPlaceholderAction,
   deleteShotAction,
   duplicateShotAction,
+  generateStoryboardImageAction,
   inheritSceneLocationAction,
   moveShotAction,
   removeShotCharacterAction,
@@ -18,7 +20,7 @@ import {
   setCompositionLockAction,
   setShotApprovalAction,
 } from '@/app/projects/[projectId]/production/actions'
-import type { CostumeDto, LocationDto } from '@/lib/assets/types'
+import type { CostumeDto, ImageAIStatusDto, LocationDto } from '@/lib/assets/types'
 import type { AIGenerationDto } from '@/lib/ai/types'
 import type { ShotIssue } from '@/lib/continuity/check-shot'
 import type { EpisodeDto, SceneCharacterDto, SceneDto } from '@/lib/episodes/types'
@@ -38,6 +40,48 @@ function ShotDeleteDialog({ projectId, episodeId, shot }: { projectId: string; e
   return <Dialog><DialogTrigger render={<Button size="sm" variant="ghost" className="text-red-400" />}><Trash2 size={11} /></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Delete {shot.title}?</DialogTitle><DialogDescription>This permanently deletes the shot, its character directions, and placeholder jobs. This cannot be undone.</DialogDescription></DialogHeader><DialogFooter><DialogClose render={<Button variant="outline" />}>Cancel</DialogClose><form action={deleteShotAction.bind(null, projectId, episodeId, shot.id)}><Button type="submit" variant="destructive">Delete shot</Button></form></DialogFooter></DialogContent></Dialog>
 }
 
+interface StoryboardImageOutput {
+  kind: 'Storyboard Image'
+  storageUrl: string
+  generationProvider: string
+  generationModel: string
+}
+
+function storyboardImageOutput(job: StoryboardJobDto | undefined) {
+  if (!job || job.status !== 'Completed' || job.jobType !== 'Storyboard Image') return null
+  const output = job.outputPlaceholder as Partial<StoryboardImageOutput> | null
+  if (
+    output?.kind !== 'Storyboard Image'
+    || typeof output.storageUrl !== 'string'
+    || typeof output.generationProvider !== 'string'
+    || typeof output.generationModel !== 'string'
+  ) return null
+  return output as StoryboardImageOutput
+}
+
+function StoryboardImageSubmitButton({
+  configured,
+  regenerate,
+}: {
+  configured: boolean
+  regenerate: boolean
+}) {
+  const { pending } = useFormStatus()
+  return <Button
+    type="submit"
+    size="sm"
+    disabled={!configured || pending}
+    className="bg-amber-500 text-black hover:bg-amber-400"
+  >
+    <Sparkles size={10} />
+    {pending
+      ? 'Generating Image…'
+      : regenerate
+        ? 'Regenerate Storyboard Image'
+        : 'Generate Storyboard Image'}
+  </Button>
+}
+
 export function StoryboardWorkspace({
   projectId,
   episode,
@@ -54,6 +98,7 @@ export function StoryboardWorkspace({
   shotListHistory,
   selectedShotGeneration,
   aiConfigured,
+  imageAIStatus,
   selectedShotId,
   notice,
   error,
@@ -73,6 +118,7 @@ export function StoryboardWorkspace({
   shotListHistory: AIGenerationDto[]
   selectedShotGeneration: AIGenerationDto | null
   aiConfigured: boolean
+  imageAIStatus: ImageAIStatusDto
   selectedShotId?: string
   notice?: string
   error?: string
@@ -98,6 +144,13 @@ export function StoryboardWorkspace({
     </header>
     {error === 'storyboard-not-ready' && <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-400">Storyboard cannot be approved until every scene has approved, complete shots with valid durations and no errors.</div>}
     {error === 'shot-not-ready' && <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-400">Shot cannot be approved until it has a description or action, location, valid scene characters and costumes, and no blocking errors.</div>}
+    {notice === 'storyboard-image-generated' && <div className="mb-4 rounded-lg border border-green-500/20 bg-green-500/5 p-3 text-xs text-green-400">Storyboard image generated successfully.</div>}
+    {error === 'storyboard-image-not-configured' && <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">Image AI configuration is incomplete.</div>}
+    {error === 'storyboard-image-missing-master' && <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">Required Character, Costume, or Location Master References are missing.</div>}
+    {error === 'storyboard-image-invalid-assets' && <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-400">Storyboard assets must be active, approved, correctly assigned, and project-scoped.</div>}
+    {error === 'storyboard-image-timeout' && <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">Storyboard image generation took too long. You can try again.</div>}
+    {error === 'storyboard-image-failed' && <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-400">The storyboard image could not be generated. Existing storyboard data was not changed.</div>}
+    {!imageAIStatus.configured && <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">Image AI configuration is incomplete.</div>}
 
     <div className="grid gap-4 lg:grid-cols-[270px_1fr]">
       <aside className="space-y-2"><div className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">Scene navigator</div>{readiness.scenes.map(item => <Link key={item.scene.id} href={href(projectId, episode.id, item.scene.id)} className={cn('block rounded-xl border bg-card p-3 hover:border-amber-500/30', item.scene.id === selectedScene.id && 'border-amber-500/40')}><div className="flex items-center justify-between"><div className="text-xs font-semibold">Scene {item.scene.sceneNumber} · {item.scene.title}</div>{item.ready ? <CheckCircle2 size={12} className="text-green-400" /> : <AlertTriangle size={12} className="text-amber-400" />}</div><div className="mt-2 text-[10px] text-muted-foreground">{item.scene.targetDurationSeconds}s · {item.totalShots} shots · {item.approvedShots} approved</div><Progress value={item.score} className="mt-2 h-1" /><div className="mt-1 text-[10px] text-muted-foreground">{item.errors} errors · {item.warnings} warnings</div></Link>)}</aside>
@@ -124,12 +177,26 @@ export function StoryboardWorkspace({
         {shots.length === 0 ? <div className="rounded-2xl border border-dashed p-16 text-center"><Film size={24} className="mx-auto mb-3 text-amber-400" /><h3 className="text-sm font-semibold">No shots in this scene</h3><p className="mx-auto mt-2 max-w-md text-xs text-muted-foreground">Create a shot manually or start with three deterministic draft shots.</p></div> : shots.map((shot, index) => {
           const assignments = shotAssignments.filter(item => item.shotId === shot.id)
           const shotIssues = issues.filter(item => item.shotId === shot.id)
-          const job = jobs.find(item => item.shotId === shot.id && item.status === 'Completed')
+          const placeholderJob = jobs.find(item => item.shotId === shot.id && item.jobType === 'Storyboard Placeholder' && item.status === 'Completed')
+          const imageJob = jobs.find(item => item.shotId === shot.id && item.jobType === 'Storyboard Image')
+          const storyboardImage = storyboardImageOutput(imageJob)
           return <article id={`shot-${shot.id}`} key={shot.id} className={cn('rounded-xl border bg-card p-4', selectedShotId === shot.id && 'border-amber-400 bg-amber-500/5')}>
             <div className="grid gap-4 xl:grid-cols-[230px_1fr]">
-              <div className="relative flex min-h-40 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-slate-950 via-amber-950/40 to-slate-900 p-4">
-                <div className="absolute inset-4 border border-white/10" /><div className="relative flex justify-between text-[10px]"><span>{shot.shotType}</span><span>{shot.locationCode || 'NO LOCATION'}</span></div><div className="relative text-center"><div className="text-2xl font-black text-white/10">{assignments.length || '—'}</div><div className="text-[9px] text-white/40">CHARACTER BLOCKS · {shot.cameraAngle}</div></div><div className="relative text-[9px] text-white/50">{job ? 'STORYBOARD PLACEHOLDER · NOT AI-GENERATED' : 'ABSTRACT FRAMING PREVIEW'}</div>
-              </div>
+              {storyboardImage
+                ? <div className="overflow-hidden rounded-lg border bg-black">
+                    {/* Provider URLs vary by storage driver, so a native image avoids remote-host coupling. */}
+                    <img
+                      src={storyboardImage.storageUrl}
+                      alt={`Storyboard for ${shot.title}`}
+                      className="aspect-video h-full min-h-40 w-full object-cover"
+                    />
+                    <div className="border-t bg-card px-3 py-2 text-[9px] text-muted-foreground">
+                      {storyboardImage.generationProvider === 'qwen' ? 'Qwen' : storyboardImage.generationProvider} · {storyboardImage.generationModel} · Generated
+                    </div>
+                  </div>
+                : <div className="relative flex min-h-40 flex-col justify-between overflow-hidden rounded-lg border bg-gradient-to-br from-slate-950 via-amber-950/40 to-slate-900 p-4">
+                    <div className="absolute inset-4 border border-white/10" /><div className="relative flex justify-between text-[10px]"><span>{shot.shotType}</span><span>{shot.locationCode || 'NO LOCATION'}</span></div><div className="relative text-center"><div className="text-2xl font-black text-white/10">{assignments.length || '—'}</div><div className="text-[9px] text-white/40">CHARACTER BLOCKS · {shot.cameraAngle}</div></div><div className="relative text-[9px] text-white/50">{placeholderJob ? 'STORYBOARD PLACEHOLDER · NOT AI-GENERATED' : 'ABSTRACT FRAMING PREVIEW'}</div>
+                  </div>}
               <div>
                 <div className="flex items-start justify-between gap-3"><div><div className="text-[10px] text-amber-400">Scene {selectedScene.sceneNumber} · Shot {String(shot.shotNumber).padStart(2, '0')} · Position {shot.position}</div><h3 className="text-sm font-semibold">{shot.title}</h3><div className="mt-1 text-[11px] text-muted-foreground">{shot.shotType} · {shot.cameraAngle} · {shot.cameraMovement} · {shot.lens} · {shot.targetDurationSeconds}s</div></div><div className="flex flex-wrap justify-end"><ShotFormSheet projectId={projectId} episodeId={episode.id} scene={selectedScene} locations={locations} shot={shot} /><form action={duplicateShotAction.bind(null, projectId, episode.id, shot.id)}><Button type="submit" size="sm" variant="ghost" title="Duplicate"><Copy size={11} /></Button></form><form action={archiveShotAction.bind(null, projectId, episode.id, shot.id)}><Button type="submit" size="sm" variant="ghost" title="Archive"><Archive size={11} /></Button></form><ShotDeleteDialog projectId={projectId} episodeId={episode.id} shot={shot} /></div></div>
                 <p className="mt-3 text-xs text-muted-foreground">{shot.description || shot.action || 'No shot description yet.'}</p>
@@ -137,7 +204,8 @@ export function StoryboardWorkspace({
                 <div className="mt-4 rounded-lg border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-xs font-semibold">Shot characters</div><div className="flex gap-2">{sceneCharacters.length > 0 && <AddSceneCharactersSheet projectId={projectId} episodeId={episode.id} shotId={shot.id} sceneCharacters={sceneCharacters} />}<ShotCharacterSheet projectId={projectId} episodeId={episode.id} shotId={shot.id} sceneCharacters={sceneCharacters} costumes={costumes} /></div></div><div className="mt-2 space-y-2">{assignments.length === 0 ? <div className="text-[11px] text-muted-foreground">No characters assigned.</div> : assignments.map(item => <div key={item.id} className="flex items-center gap-2 rounded bg-muted/30 p-2"><div className="flex-1 text-[11px]"><strong>{item.characterCode} · {item.characterName}</strong> <span className="text-muted-foreground">· {item.characterStatus}</span><div className="text-muted-foreground">{item.costumeCode || 'No costume'} · {item.costumeName || 'Unassigned'} · {item.screenPosition || 'Position unspecified'} · {item.expression || 'Expression unspecified'}</div></div><ShotCharacterSheet projectId={projectId} episodeId={episode.id} shotId={shot.id} sceneCharacters={sceneCharacters} costumes={costumes} assignment={item} /><form action={removeShotCharacterAction.bind(null, projectId, episode.id, shot.id, item.id)}><Button type="submit" size="sm" variant="ghost" className="text-red-400">Remove</Button></form></div>)}</div></div>
                 {shotIssues.length > 0 && <div className="mt-3 space-y-1">{shotIssues.map(item => <div key={item.id} className={cn('rounded px-2 py-1.5 text-[10px]', item.severity === 'Error' ? 'bg-red-500/5 text-red-400' : item.severity === 'Warning' ? 'bg-amber-500/5 text-amber-400' : 'bg-blue-500/5 text-blue-400')}><strong>{item.ruleCode}</strong> · {item.description}{item.suggestedAction ? ` · ${item.suggestedAction}` : ''}</div>)}</div>}
                 {shot.generationPrompt && <div className="mt-3 rounded-lg bg-muted/30 p-3"><div className="flex items-center justify-between"><div className="text-[10px] font-semibold">Deterministic prompt context</div><Button type="button" size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(shot.generationPrompt || '')}><Copy size={10} /> Copy Prompt</Button></div><pre className="mt-2 max-h-28 overflow-hidden whitespace-pre-wrap text-[9px] text-muted-foreground">{shot.generationPrompt}</pre></div>}
-                <div className="mt-4 flex flex-wrap gap-2"><form action={moveShotAction.bind(null, projectId, episode.id, selectedScene.id, shot.id, 'up')}><Button type="submit" size="sm" variant="outline" disabled={index === 0}><ArrowUp size={10} /></Button></form><form action={moveShotAction.bind(null, projectId, episode.id, selectedScene.id, shot.id, 'down')}><Button type="submit" size="sm" variant="outline" disabled={index === shots.length - 1}><ArrowDown size={10} /></Button></form><form action={setShotApprovalAction.bind(null, projectId, episode.id, shot.id, shot.approvalStatus === 'Approved' ? 'Draft' : 'Approved')}><Button type="submit" size="sm" variant="outline">{shot.approvalStatus === 'Approved' ? 'Unapprove' : 'Approve'}</Button></form><form action={setCompositionLockAction.bind(null, projectId, episode.id, shot.id, !shot.compositionLocked)}><Button type="submit" size="sm" variant="outline">{shot.compositionLocked ? <Unlock size={10} /> : <Lock size={10} />}{shot.compositionLocked ? 'Unlock' : 'Lock Composition'}</Button></form><form action={inheritSceneLocationAction.bind(null, projectId, episode.id, shot.id)}><Button type="submit" size="sm" variant="outline"><MapPin size={10} /> Inherit Scene Location</Button></form><form action={buildShotPromptAction.bind(null, projectId, episode.id, shot.id)}><Button type="submit" size="sm" variant="outline"><RefreshCw size={10} /> Build Prompt</Button></form><form action={createStoryboardPlaceholderAction.bind(null, projectId, episode.id, shot.id)}><Button type="submit" size="sm" className="bg-amber-500 text-black hover:bg-amber-400"><Sparkles size={10} /> Create Storyboard Placeholder</Button></form></div>
+                {imageJob?.status === 'Failed' && <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[10px] text-red-400">{imageJob.errorMessage || 'Storyboard image generation failed safely.'}</div>}
+                <div className="mt-4 flex flex-wrap gap-2"><form action={moveShotAction.bind(null, projectId, episode.id, selectedScene.id, shot.id, 'up')}><Button type="submit" size="sm" variant="outline" disabled={index === 0}><ArrowUp size={10} /></Button></form><form action={moveShotAction.bind(null, projectId, episode.id, selectedScene.id, shot.id, 'down')}><Button type="submit" size="sm" variant="outline" disabled={index === shots.length - 1}><ArrowDown size={10} /></Button></form><form action={setShotApprovalAction.bind(null, projectId, episode.id, shot.id, shot.approvalStatus === 'Approved' ? 'Draft' : 'Approved')}><Button type="submit" size="sm" variant="outline">{shot.approvalStatus === 'Approved' ? 'Unapprove' : 'Approve'}</Button></form><form action={setCompositionLockAction.bind(null, projectId, episode.id, shot.id, !shot.compositionLocked)}><Button type="submit" size="sm" variant="outline">{shot.compositionLocked ? <Unlock size={10} /> : <Lock size={10} />}{shot.compositionLocked ? 'Unlock' : 'Lock Composition'}</Button></form><form action={inheritSceneLocationAction.bind(null, projectId, episode.id, shot.id)}><Button type="submit" size="sm" variant="outline"><MapPin size={10} /> Inherit Scene Location</Button></form><form action={buildShotPromptAction.bind(null, projectId, episode.id, shot.id)}><Button type="submit" size="sm" variant="outline"><RefreshCw size={10} /> Build Prompt</Button></form><form action={generateStoryboardImageAction.bind(null, projectId, episode.id, shot.id)}><StoryboardImageSubmitButton configured={imageAIStatus.configured} regenerate={Boolean(storyboardImage)} /></form><form action={createStoryboardPlaceholderAction.bind(null, projectId, episode.id, shot.id)}><Button type="submit" size="sm" variant="ghost">Create Placeholder (development)</Button></form></div>
               </div>
             </div>
           </article>

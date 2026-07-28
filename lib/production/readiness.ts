@@ -6,7 +6,7 @@ import { listShotCharacters } from '@/lib/db/queries/shot-characters'
 import { listStoryboardJobs } from '@/lib/db/queries/storyboard-jobs'
 import { checkShot, type ShotIssue } from '@/lib/continuity/check-shot'
 import type { SceneDto } from '@/lib/episodes/types'
-import type { ShotCharacterDto, ShotDto } from '@/lib/production/types'
+import type { ShotCharacterDto, ShotDto, StoryboardJobDto } from '@/lib/production/types'
 
 export interface ShotReadiness {
   score: number
@@ -42,6 +42,11 @@ export interface EpisodeStoryboardReadiness {
   totalWarnings: number
   score: number
   readyForApproval: boolean
+}
+
+function isCompletedStoryboardOutput(job: StoryboardJobDto) {
+  return job.status === 'Completed'
+    && (job.jobType === 'Storyboard Placeholder' || job.jobType === 'Storyboard Image')
 }
 
 export function calculateShotReadiness(shot: ShotDto, assignments: ShotCharacterDto[], issues: ShotIssue[]): ShotReadiness {
@@ -85,7 +90,9 @@ export async function getEpisodeStoryboardReadiness(projectId: string, episodeId
       issues,
       totalShots: sceneShots.length,
       approvedShots,
-      generatedPlaceholders: jobs.filter(job => job.sceneId === scene.id && job.status === 'Completed').length,
+      generatedPlaceholders: jobs.filter(job => (
+        job.sceneId === scene.id && isCompletedStoryboardOutput(job)
+      )).length,
       totalDuration,
       errors,
       warnings,
@@ -105,7 +112,7 @@ export async function getEpisodeStoryboardReadiness(projectId: string, episodeId
     scenesWithShots: sceneResults.filter(item => item.totalShots > 0).length,
     totalShots: shots.length,
     approvedShots,
-    generatedPlaceholders: jobs.filter(job => job.status === 'Completed').length,
+    generatedPlaceholders: jobs.filter(isCompletedStoryboardOutput).length,
     totalErrors,
     totalWarnings,
     score: scenes.length ? Math.round(sceneResults.reduce((sum, item) => sum + item.score, 0) / scenes.length) : 0,

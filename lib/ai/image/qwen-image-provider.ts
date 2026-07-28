@@ -7,6 +7,7 @@ import type {
   ImageGenerationProvider,
   ImageGenerationResult,
 } from '@/lib/ai/image/types'
+import type { ProjectDto } from '@/lib/projects/types'
 
 type Fetcher = typeof fetch
 
@@ -24,6 +25,16 @@ function imageSize(assetType: AssetConceptType) {
   return '1472*1104'
 }
 
+function storyboardImageSize(orientation: ProjectDto['orientation']) {
+  if (orientation === 'Vertical 9:16') return '1104*1472'
+  if (orientation === 'Landscape 16:9') return '1472*1104'
+  return '1328*1328'
+}
+
+function combinedNegativePrompt(value?: string | null) {
+  return value?.trim() ? `${negativePrompt} ${value.trim()}` : negativePrompt
+}
+
 function safeProviderValue(value: unknown) {
   return typeof value === 'string' ? value.slice(0, 500) : null
 }
@@ -34,7 +45,7 @@ function logQwenGenerationFailure(input: {
   providerErrorMessage?: unknown
   httpStatus?: number | null
   requestId?: unknown
-  assetType?: AssetConceptType
+  assetType?: AssetConceptType | 'storyboard'
   model?: string
   candidateCount?: number
   referenceImageCount?: number
@@ -112,12 +123,17 @@ export function createQwenImageProvider(
     'Content-Type': 'application/json',
   }
 
-  async function synchronous(input: {
-    assetType: AssetConceptType
+  interface QwenGenerationInput {
+    logType: AssetConceptType | 'storyboard'
     prompt: string
     referenceImageUrls: string[]
     candidateCount: number
-  }) {
+    size: string
+    negativePrompt: string
+    promptExtend: boolean
+  }
+
+  async function synchronous(input: QwenGenerationInput) {
     const content = [
       ...input.referenceImageUrls.slice(0, 3).map(image => ({ image })),
       { text: input.prompt },
@@ -132,9 +148,9 @@ export function createQwenImageProvider(
           input: { messages: [{ role: 'user', content }] },
           parameters: {
             n: input.candidateCount,
-            size: imageSize(input.assetType),
-            negative_prompt: negativePrompt,
-            prompt_extend: input.assetType === 'location',
+            size: input.size,
+            negative_prompt: input.negativePrompt,
+            prompt_extend: input.promptExtend,
             watermark: false,
           },
         }),
@@ -144,10 +160,7 @@ export function createQwenImageProvider(
     return syncImageUrls(await jsonResponse(response))
   }
 
-  async function oneAsynchronous(input: {
-    assetType: AssetConceptType
-    prompt: string
-  }) {
+  async function oneAsynchronous(input: QwenGenerationInput) {
     const created = await jsonResponse(await fetcher(
       `${config.baseUrl}/services/aigc/text2image/image-synthesis`,
       {
@@ -158,9 +171,9 @@ export function createQwenImageProvider(
           input: { prompt: input.prompt.slice(0, 800) },
           parameters: {
             n: 1,
-            size: imageSize(input.assetType),
-            negative_prompt: negativePrompt,
-            prompt_extend: input.assetType === 'location',
+            size: input.size,
+            negative_prompt: input.negativePrompt,
+            prompt_extend: input.promptExtend,
             watermark: false,
           },
         }),
@@ -204,72 +217,95 @@ export function createQwenImageProvider(
     throw new ImageAIError('generation_timeout', 'Qwen image generation timed out.')
   }
 
+  async function generate(input: QwenGenerationInput): Promise<ImageGenerationResult> {
+    const startedAt = Date.now()
+    const requestMetadata = {
+      assetType: input.logType,
+      model: config.model,
+      candidateCount: input.candidateCount,
+      referenceImageCount: Math.min(input.referenceImageUrls.length, 3),
+      timeoutMs,
+    }
+    console.info('qwen_image_generation_started', requestMetadata)
+    try {
+      const modern = config.model.startsWith('qwen-image-2.0')
+        || config.model.startsWith('qwen-image-3')
+      const urls = modern
+        ? await synchronous(input)
+        : (await Promise.all(
+            Array.from({ length: input.candidateCount }, () => oneAsynchronous(input)),
+          )).flat()
+      if (!urls.length) {
+        logQwenGenerationFailure({
+          reason: 'no_images_returned',
+          providerErrorCode: 'EMPTY_IMAGE_RESPONSE',
+          providerErrorMessage: 'Qwen returned no image results.',
+        })
+        throw new ImageAIError('no_images_returned', 'Qwen returned no image results.')
+      }
+      return {
+        images: urls.slice(0, input.candidateCount).map(url => ({
+          url,
+          mimeType: 'image/png',
+        })),
+        provider: 'qwen',
+        model: config.model,
+        durationMs: Date.now() - startedAt,
+      }
+    } catch (error) {
+      if (error instanceof ImageAIError) {
+        if (error.reason === 'generation_timeout') {
+          logQwenGenerationFailure({
+            reason: error.reason,
+            providerErrorCode: 'POLL_TIMEOUT',
+            providerErrorMessage: error.message,
+            ...requestMetadata,
+          })
+        }
+        throw error
+      }
+      if ((error as { name?: string }).name === 'TimeoutError') {
+        logQwenGenerationFailure({
+          reason: 'generation_timeout',
+          providerErrorCode: 'REQUEST_TIMEOUT',
+          providerErrorMessage: (error as { message?: string }).message,
+          ...requestMetadata,
+        })
+        throw new ImageAIError('generation_timeout', 'Qwen image generation timed out.')
+      }
+      logQwenGenerationFailure({
+        reason: 'generation_failed',
+        providerErrorCode: (error as { code?: string }).code || 'REQUEST_FAILED',
+        providerErrorMessage: (error as { message?: string }).message,
+      })
+      throw new ImageAIError('generation_failed', 'Qwen image generation failed.')
+    }
+  }
+
   return {
     id: 'qwen',
     model: config.model,
-    async generateAssetConcepts(input): Promise<ImageGenerationResult> {
-      const startedAt = Date.now()
-      const requestMetadata = {
-        assetType: input.assetType,
-        model: config.model,
+    generateAssetConcepts(input) {
+      return generate({
+        logType: input.assetType,
+        prompt: input.prompt,
+        referenceImageUrls: input.referenceImageUrls,
         candidateCount: input.candidateCount,
-        referenceImageCount: Math.min(input.referenceImageUrls.length, 3),
-        timeoutMs,
-      }
-      console.info('qwen_image_generation_started', requestMetadata)
-      try {
-        const modern = config.model.startsWith('qwen-image-2.0')
-          || config.model.startsWith('qwen-image-3')
-        const urls = modern
-          ? await synchronous(input)
-          : (await Promise.all(
-              Array.from({ length: input.candidateCount }, () => oneAsynchronous(input)),
-            )).flat()
-        if (!urls.length) {
-          logQwenGenerationFailure({
-            reason: 'no_images_returned',
-            providerErrorCode: 'EMPTY_IMAGE_RESPONSE',
-            providerErrorMessage: 'Qwen returned no image results.',
-          })
-          throw new ImageAIError('no_images_returned', 'Qwen returned no image results.')
-        }
-        return {
-          images: urls.slice(0, input.candidateCount).map(url => ({
-            url,
-            mimeType: 'image/png',
-          })),
-          provider: 'qwen',
-          model: config.model,
-          durationMs: Date.now() - startedAt,
-        }
-      } catch (error) {
-        if (error instanceof ImageAIError) {
-          if (error.reason === 'generation_timeout') {
-            logQwenGenerationFailure({
-              reason: error.reason,
-              providerErrorCode: 'POLL_TIMEOUT',
-              providerErrorMessage: error.message,
-              ...requestMetadata,
-            })
-          }
-          throw error
-        }
-        if ((error as { name?: string }).name === 'TimeoutError') {
-          logQwenGenerationFailure({
-            reason: 'generation_timeout',
-            providerErrorCode: 'REQUEST_TIMEOUT',
-            providerErrorMessage: (error as { message?: string }).message,
-            ...requestMetadata,
-          })
-          throw new ImageAIError('generation_timeout', 'Qwen image generation timed out.')
-        }
-        logQwenGenerationFailure({
-          reason: 'generation_failed',
-          providerErrorCode: (error as { code?: string }).code || 'REQUEST_FAILED',
-          providerErrorMessage: (error as { message?: string }).message,
-        })
-        throw new ImageAIError('generation_failed', 'Qwen image generation failed.')
-      }
+        size: imageSize(input.assetType),
+        negativePrompt,
+        promptExtend: input.assetType === 'location',
+      })
+    },
+    generateStoryboardImage(input) {
+      return generate({
+        logType: 'storyboard',
+        prompt: input.prompt,
+        referenceImageUrls: input.referenceImageUrls,
+        candidateCount: 1,
+        size: storyboardImageSize(input.orientation),
+        negativePrompt: combinedNegativePrompt(input.negativePrompt),
+        promptExtend: true,
+      })
     },
   }
 }

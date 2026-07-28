@@ -5,6 +5,7 @@ import type {
   CostumeDto,
   LocationDto,
 } from '@/lib/assets/types'
+import type { ProjectDto } from '@/lib/projects/types'
 
 export type AssetConceptType = AssetType
 
@@ -38,6 +39,12 @@ export interface ImageGenerationProvider {
     prompt: string
     referenceImageUrls: string[]
     candidateCount: number
+  }): Promise<ImageGenerationResult>
+  generateStoryboardImage(input: {
+    prompt: string
+    negativePrompt?: string | null
+    referenceImageUrls: string[]
+    orientation: ProjectDto['orientation']
   }): Promise<ImageGenerationResult>
 }
 

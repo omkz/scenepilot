@@ -70,10 +70,13 @@ export function validateAssetImage(input: {
   claimedMimeType: string
   filename?: string | null
   sizeBytes?: number
+  maximumBytes?: number
+  allowMimeTypeMismatch?: boolean
 }): AssetImageValidationResult {
   const sizeBytes = input.sizeBytes ?? input.bytes.byteLength
+  const maximumBytes = input.maximumBytes ?? ASSET_IMAGE_MAX_BYTES
   if (sizeBytes < 1 || input.bytes.byteLength < 1) return { valid: false, reason: 'invalid_file' }
-  if (sizeBytes > ASSET_IMAGE_MAX_BYTES) return { valid: false, reason: 'file_too_large' }
+  if (sizeBytes > maximumBytes) return { valid: false, reason: 'file_too_large' }
 
   const detectedMimeType = isJpeg(input.bytes)
     ? 'image/jpeg'
@@ -83,7 +86,9 @@ export function validateAssetImage(input: {
         ? 'image/webp'
         : null
   if (!detectedMimeType) return { valid: false, reason: 'unsupported_type' }
-  if (input.claimedMimeType !== detectedMimeType) return { valid: false, reason: 'unsupported_type' }
+  if (!input.allowMimeTypeMismatch && input.claimedMimeType !== detectedMimeType) {
+    return { valid: false, reason: 'unsupported_type' }
+  }
 
   const extension = input.filename?.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
   const allowedExtensions: Record<AssetImageMimeType, string[]> = {

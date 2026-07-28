@@ -35,6 +35,8 @@ export function buildShotPrompt({
       item.costumeCode ? `${item.costumeCode} — ${item.costumeName}.` : 'No costume reference assigned.',
       item.pose ? `Pose: ${item.pose}.` : null,
       item.expression ? `Expression: ${item.expression}.` : null,
+      item.action ? `Character action: ${item.action}.` : null,
+      item.gazeDirection ? `Gaze: ${item.gazeDirection}.` : null,
       item.physicalState ? `Physical state: ${item.physicalState}.` : null,
       locks.length ? `Locked: ${locks.join(', ')}.` : null,
       ].filter(Boolean).join('\n')
@@ -42,7 +44,7 @@ export function buildShotPrompt({
     : 'No characters assigned.'
   return [
     `FORMAT:\n${project.orientation}, serialized short drama.`,
-    `SHOT:\n${shot.shotType}, ${shot.cameraAngle}, ${shot.cameraMovement}, ${shot.lens}.\n${shot.description || shot.action || shot.title}`,
+    `SHOT:\n${shot.shotType}, ${shot.cameraAngle}, ${shot.cameraMovement}, ${shot.lens}.\n${shot.description || shot.action || shot.title}${shot.composition ? `\nComposition: ${shot.composition}` : ''}${shot.emotionalIntent ? `\nEmotional intent: ${shot.emotionalIntent}` : ''}${shot.dialogueExcerpt ? `\nDialogue excerpt: ${shot.dialogueExcerpt}` : ''}`,
     `LOCATION:\n${shot.locationCode || 'No location code'} — ${shot.locationName || 'Unassigned'}.\n${location?.visualIdentityNotes || location?.architectureStyle || 'Preserve the approved location identity.'}\nLocked: ${[location?.architectureLocked && 'architecture', location?.layoutLocked && 'layout', location?.lightingLocked && 'lighting'].filter(Boolean).join(', ') || 'none'}.\nTime: ${shot.timeOfDay}.${shot.lightingNotes ? `\nLighting: ${shot.lightingNotes}` : ''}`,
     `CHARACTERS:\n${cast}`,
     `ACTION:\n${shot.action || scene.purpose || scene.summary || 'Follow the planned scene action.'}`,

@@ -13,6 +13,7 @@ const projectId = '00000000-0000-4000-8000-000000000001'
 const assetId = '00000000-0000-4000-8000-000000000002'
 const imageId = '00000000-0000-4000-8000-000000000003'
 const key = `asset-images/${projectId}/character/${assetId}/${imageId}.png`
+const storyboardKey = `storyboard-images/${projectId}/${assetId}/${imageId}/${projectId}/${imageId}.png`
 const temporaryRoots: string[] = []
 
 afterEach(async () => {
@@ -57,5 +58,20 @@ describe('local asset storage', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'scenepilot-assets-'))
     temporaryRoots.push(root)
     await expect(createLocalAssetStorage(root).remove(key)).resolves.toBeUndefined()
+  })
+
+  it('stores storyboard images under the sibling storyboard root', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'scenepilot-assets-'))
+    temporaryRoots.push(root)
+    const storage = createLocalAssetStorage(root)
+    await storage.upload({
+      storageKey: storyboardKey,
+      filename: 'storyboard.png',
+      mimeType: 'image/png',
+      bytes: Uint8Array.from([1, 2, 3]),
+    })
+    expect(new Uint8Array(await readFile(resolveLocalAssetPath(storyboardKey, root))))
+      .toEqual(Uint8Array.from([1, 2, 3]))
+    expect(localAssetUrl(storyboardKey)).toContain('/api/local-assets/storyboard-images/')
   })
 })

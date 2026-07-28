@@ -4,7 +4,8 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { AssetStorage } from '@/lib/storage/asset-storage'
 
-const LOCAL_KEY_PATTERN = /^asset-images\/[0-9a-f-]{36}\/(character|costume|location)\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i
+const LOCAL_ASSET_KEY_PATTERN = /^asset-images\/[0-9a-f-]{36}\/(character|costume|location)\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i
+const LOCAL_STORYBOARD_KEY_PATTERN = /^storyboard-images\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp)$/i
 
 export function getLocalAssetStorageRoot() {
   const configuredRoot = process.env.ASSET_LOCAL_STORAGE_ROOT
@@ -18,18 +19,30 @@ export function getLocalAssetStorageRoot() {
 }
 
 export function validateLocalAssetStorageKey(key: string) {
-  if (!LOCAL_KEY_PATTERN.test(key) || key.includes('\\') || key.includes('\0')) return false
+  const expectedSegments = key.startsWith('storyboard-images/') ? 6 : 5
+  if (
+    (!LOCAL_ASSET_KEY_PATTERN.test(key) && !LOCAL_STORYBOARD_KEY_PATTERN.test(key))
+    || key.includes('\\')
+    || key.includes('\0')
+  ) return false
   const segments = key.split('/')
-  return segments.length === 5 && segments.every(segment => (
+  return segments.length === expectedSegments && segments.every(segment => (
     segment !== '.' && segment !== '..' && !segment.includes('%')
   ))
 }
 
 export function resolveLocalAssetPath(key: string, root = getLocalAssetStorageRoot()) {
   if (!validateLocalAssetStorageKey(key)) throw new Error('INVALID_LOCAL_ASSET_KEY')
-  const relativeKey = key.slice('asset-images/'.length)
-  const resolved = path.resolve(root, relativeKey)
-  const relative = path.relative(root, resolved)
+  const storyboard = key.startsWith('storyboard-images/')
+  const targetRoot = storyboard
+    ? path.basename(root) === 'asset-images'
+      ? path.join(path.dirname(root), 'storyboard-images')
+      : path.join(root, 'storyboard-images')
+    : root
+  const prefix = storyboard ? 'storyboard-images/' : 'asset-images/'
+  const relativeKey = key.slice(prefix.length)
+  const resolved = path.resolve(targetRoot, relativeKey)
+  const relative = path.relative(targetRoot, resolved)
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new Error('INVALID_LOCAL_ASSET_KEY')
   }

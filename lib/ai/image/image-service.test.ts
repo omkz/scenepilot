@@ -66,6 +66,12 @@ function provider(count = 4): ImageGenerationProvider {
       model: 'qwen-image-2.0-pro',
       durationMs: 12,
     })),
+    generateStoryboardImage: vi.fn(async () => ({
+      images: [{ bytes: png, mimeType: 'image/png' }],
+      provider: 'qwen',
+      model: 'qwen-image-2.0-pro',
+      durationMs: 12,
+    })),
   }
 }
 

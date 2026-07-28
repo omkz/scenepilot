@@ -93,3 +93,20 @@ export function createAssetStorageKey(
   const normalizedExtension = extension === 'jpeg' ? 'jpg' : extension
   return `asset-images/${projectId}/${assetType}/${assetId}/${randomUUID()}.${normalizedExtension}`
 }
+
+export function createStoryboardStorageKey(
+  projectId: string,
+  episodeId: string,
+  sceneId: string,
+  shotId: string,
+  filename: string,
+) {
+  const identifiers = [projectId, episodeId, sceneId, shotId]
+  if (!identifiers.every(value => /^[0-9a-f-]{36}$/i.test(value))) {
+    throw new AssetStorageConfigurationError('Invalid storyboard storage scope')
+  }
+  const extension = filename.toLowerCase().match(/\.(jpe?g|png|webp)$/)?.[1]
+  if (!extension) throw new AssetStorageConfigurationError('Unsupported storyboard image extension')
+  const normalizedExtension = extension === 'jpeg' ? 'jpg' : extension
+  return `storyboard-images/${projectId}/${episodeId}/${sceneId}/${shotId}/${randomUUID()}.${normalizedExtension}`
+}
