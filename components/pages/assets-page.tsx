@@ -480,7 +480,7 @@ export function AssetsPage({
                     projectId={projectId}
                     type="costume"
                     asset={costume}
-                    edit={!archived ? <CostumeFormSheet projectId={projectId} characters={activeCharacters} costume={costume} images={imagesFor('costume', costume.id)} storageStatus={storageStatus} imageAIStatus={imageAIStatus} /> : undefined}
+                    edit={!archived ? <CostumeFormSheet projectId={projectId} characters={activeCharacters} costume={costume} images={imagesFor('costume', costume.id)} storageStatus={storageStatus} imageAIStatus={imageAIStatus} linkedCharacterHasMaster={imagesFor('character', costume.characterId).some(image => image.imageRole === 'Master Reference')} /> : undefined}
                   />
                 </article>
               ))}

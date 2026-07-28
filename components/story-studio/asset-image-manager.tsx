@@ -128,6 +128,7 @@ export function AssetImageManager({
   images,
   storageStatus = defaultStorageStatus,
   imageAIStatus = defaultImageAIStatus,
+  linkedCharacterHasMaster,
 }: {
   projectId: string
   assetType: AssetType
@@ -135,6 +136,7 @@ export function AssetImageManager({
   images: AssetImageDto[]
   storageStatus?: AssetStorageStatusDto
   imageAIStatus?: ImageAIStatusDto
+  linkedCharacterHasMaster?: boolean
 }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -149,6 +151,7 @@ export function AssetImageManager({
     .filter(image => image.imageRole === 'Generated Concept')
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const details = copy[assetType]
+  const characterMasterMissing = assetType === 'costume' && linkedCharacterHasMaster !== true
 
   const refreshResult = (result: { ok: boolean; reason?: string }, success = 'Visual references updated.') => {
     setMessage(result.ok
@@ -371,7 +374,7 @@ export function AssetImageManager({
           type="button"
           size="sm"
           variant="outline"
-          disabled={pending || !storageStatus.configured}
+          disabled={pending || !storageStatus.configured || characterMasterMissing}
           onClick={generateConcepts}
         >
           {pending ? <LoaderCircle size={11} className="animate-spin" /> : <Sparkles size={11} />}
@@ -380,6 +383,9 @@ export function AssetImageManager({
             : `Generate ${assetType === 'character' ? 'Character' : assetType === 'costume' ? 'Costume' : 'Location'} Concepts`}
         </Button> : <p className="text-[11px] text-amber-400">Image concept generation is not configured.</p>}
       </div>
+      {characterMasterMissing && <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] leading-relaxed text-amber-300">
+        This Costume needs a Character Master Reference to preserve the linked character&apos;s identity. Return to the linked Character, upload or generate a suitable reference, and promote it to Master.
+      </p>}
       {generatedConcepts.length > 0 ? <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         {generatedConcepts.map(image => <div key={image.id} className="rounded-xl border bg-card p-3">
           <ImagePreview

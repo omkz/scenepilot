@@ -46,9 +46,18 @@ export function buildCostumeConceptPrompt(
     `Category: ${costume.category}.`,
     `Default condition: ${costume.condition}.`,
     `Costume visual direction: ${clean(costume.description)}.`,
+    'Use the linked Character Master Reference as the authoritative identity reference.',
+    'Preserve the same face, age, hair, skin tone, body proportions, and permanent distinguishing features.',
+    'The Character Master defines the person, not the final wardrobe.',
+    'Replace the foundational clothing shown in the Character Master with the Costume described below.',
+    'Do not copy or retain the Character Master’s clothing unless the Costume description explicitly requests it.',
+    'Do not change the character’s ethnicity, age, face structure, hairstyle, or permanent identity markers.',
     'Show the same linked character from head to toe in a neutral full-body pose.',
-    'Keep the face recognizable and visible whenever the costume design permits it.',
-    'Show the complete outfit and important accessories against a simple background.',
+    'Keep the face clearly recognizable and visible whenever the costume design permits it.',
+    'Show the complete outfit, footwear, silhouette, layers, materials, and important accessories.',
+    'Do not crop the head, hands, clothing details, accessories, or feet.',
+    'Use a clean neutral or lightly atmospheric background suitable for professional costume concept art.',
+    'The result should be a reusable Costume Master Reference, not a scene illustration or action shot.',
     securityInstruction,
   ].join('\n')
 }
@@ -69,4 +78,4 @@ export function buildLocationConceptPrompt(location: LocationDto) {
   ].join('\n')
 }
 
-export const ASSET_CONCEPT_PROMPT_VERSION = 'asset-concept-v3'
+export const ASSET_CONCEPT_PROMPT_VERSION = 'asset-concept-v4'

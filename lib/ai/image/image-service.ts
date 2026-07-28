@@ -145,6 +145,21 @@ function buildRequest(context: AssetConceptContext) {
     }
   }
   if (context.assetType === 'costume' && context.costume && context.linkedCharacter) {
+    if (context.costume.archivedAt || context.linkedCharacter.archivedAt) {
+      throw new ImageAIError('asset_archived', 'Archived assets cannot generate concepts.')
+    }
+    const characterMasters = (context.linkedCharacterImages || []).filter(image => (
+      image.projectId === context.costume?.projectId
+      && image.assetType === 'character'
+      && image.assetId === context.linkedCharacter?.id
+      && image.imageRole === 'Master Reference'
+    ))
+    if (characterMasters.length !== 1) {
+      throw new ImageAIError(
+        'character_master_required',
+        'A Character Master Reference is required for Costume generation.',
+      )
+    }
     return {
       prompt: buildCostumeConceptPrompt(context.costume, context.linkedCharacter),
       references: selectCostumeConceptReferences({
@@ -152,9 +167,10 @@ function buildRequest(context: AssetConceptContext) {
         costumeId: context.costume.id,
         characterImages: context.linkedCharacterImages || [],
         characterId: context.linkedCharacter.id,
+        projectId: context.costume.projectId,
         limit: 3,
       }),
-      archived: Boolean(context.costume.archivedAt) || Boolean(context.linkedCharacter.archivedAt),
+      archived: false,
     }
   }
   if (context.assetType === 'location' && context.location) {

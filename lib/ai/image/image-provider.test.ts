@@ -9,6 +9,22 @@ describe('image AI configuration', () => {
     expect(config.provider).toBe('qwen')
     expect(config.model).toBe('qwen-image-2.0-pro')
     expect(config.candidateCount).toBe(4)
+    expect(config.requestTimeoutMs).toBe(300_000)
+  })
+
+  it('accepts bounded request timeouts and safely defaults invalid values', () => {
+    expect(readImageAIConfig({
+      DASHSCOPE_API_KEY: 'test-key',
+      IMAGE_AI_REQUEST_TIMEOUT_MS: '450000',
+    } as NodeJS.ProcessEnv).requestTimeoutMs).toBe(450_000)
+    expect(readImageAIConfig({
+      DASHSCOPE_API_KEY: 'test-key',
+      IMAGE_AI_REQUEST_TIMEOUT_MS: '1000',
+    } as NodeJS.ProcessEnv).requestTimeoutMs).toBe(300_000)
+    expect(readImageAIConfig({
+      DASHSCOPE_API_KEY: 'test-key',
+      IMAGE_AI_REQUEST_TIMEOUT_MS: 'invalid',
+    } as NodeJS.ProcessEnv).requestTimeoutMs).toBe(300_000)
   })
 
   it('falls back to QWEN_API_KEY while preferring DASHSCOPE_API_KEY', () => {

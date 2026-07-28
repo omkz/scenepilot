@@ -61,8 +61,27 @@ describe('asset concept reference selection', () => {
         image('character-master', 'character', 'character-a', 'Master Reference'),
       ],
       characterId: 'character-a',
+      projectId: '00000000-0000-4000-8000-000000000001',
     })
     expect(selected.map(item => item.id)).toEqual(['character-master', 'costume-inspiration'])
+  })
+
+  it('prioritizes an existing Costume master over Costume inspiration', () => {
+    const selected = selectCostumeConceptReferences({
+      costumeImages: [
+        image('costume-inspiration', 'costume', 'costume-a', 'Inspiration'),
+        image('costume-master', 'costume', 'costume-a', 'Master Reference'),
+      ],
+      costumeId: 'costume-a',
+      characterImages: [
+        image('character-master', 'character', 'character-a', 'Master Reference'),
+      ],
+      characterId: 'character-a',
+      projectId: '00000000-0000-4000-8000-000000000001',
+      limit: 3,
+    })
+    expect(selected.map(item => item.id))
+      .toEqual(['character-master', 'costume-master', 'costume-inspiration'])
   })
 
   it('never selects images from another Location', () => {

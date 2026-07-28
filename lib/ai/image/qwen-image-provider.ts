@@ -34,6 +34,11 @@ function logQwenGenerationFailure(input: {
   providerErrorMessage?: unknown
   httpStatus?: number | null
   requestId?: unknown
+  assetType?: AssetConceptType
+  model?: string
+  candidateCount?: number
+  referenceImageCount?: number
+  timeoutMs?: number
 }) {
   console.error('qwen_image_generation_failed', {
     reason: input.reason,
@@ -41,6 +46,11 @@ function logQwenGenerationFailure(input: {
     providerErrorMessage: safeProviderValue(input.providerErrorMessage),
     httpStatus: input.httpStatus ?? null,
     requestId: safeProviderValue(input.requestId),
+    assetType: input.assetType ?? null,
+    model: input.model ?? null,
+    candidateCount: input.candidateCount ?? null,
+    referenceImageCount: input.referenceImageCount ?? null,
+    timeoutMs: input.timeoutMs ?? null,
   })
 }
 
@@ -96,7 +106,7 @@ export function createQwenImageProvider(
   const fetcher = options.fetcher || fetch
   const sleep = options.sleep || (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)))
   const pollIntervalMs = options.pollIntervalMs ?? 5_000
-  const timeoutMs = options.timeoutMs ?? 180_000
+  const timeoutMs = options.timeoutMs ?? config.requestTimeoutMs ?? 300_000
   const headers = {
     Authorization: `Bearer ${config.apiKey}`,
     'Content-Type': 'application/json',
@@ -124,7 +134,7 @@ export function createQwenImageProvider(
             n: input.candidateCount,
             size: imageSize(input.assetType),
             negative_prompt: negativePrompt,
-            prompt_extend: true,
+            prompt_extend: input.assetType === 'location',
             watermark: false,
           },
         }),
@@ -150,7 +160,7 @@ export function createQwenImageProvider(
             n: 1,
             size: imageSize(input.assetType),
             negative_prompt: negativePrompt,
-            prompt_extend: true,
+            prompt_extend: input.assetType === 'location',
             watermark: false,
           },
         }),
@@ -191,12 +201,6 @@ export function createQwenImageProvider(
         throw new ImageAIError('generation_failed', `Qwen image task failed (${state.code || state.status}).`)
       }
     }
-    logQwenGenerationFailure({
-      reason: 'generation_timeout',
-      providerErrorCode: 'POLL_TIMEOUT',
-      providerErrorMessage: 'Qwen image generation polling timed out.',
-      requestId: createdState.requestId,
-    })
     throw new ImageAIError('generation_timeout', 'Qwen image generation timed out.')
   }
 
@@ -205,6 +209,14 @@ export function createQwenImageProvider(
     model: config.model,
     async generateAssetConcepts(input): Promise<ImageGenerationResult> {
       const startedAt = Date.now()
+      const requestMetadata = {
+        assetType: input.assetType,
+        model: config.model,
+        candidateCount: input.candidateCount,
+        referenceImageCount: Math.min(input.referenceImageUrls.length, 3),
+        timeoutMs,
+      }
+      console.info('qwen_image_generation_started', requestMetadata)
       try {
         const modern = config.model.startsWith('qwen-image-2.0')
           || config.model.startsWith('qwen-image-3')
@@ -231,12 +243,23 @@ export function createQwenImageProvider(
           durationMs: Date.now() - startedAt,
         }
       } catch (error) {
-        if (error instanceof ImageAIError) throw error
+        if (error instanceof ImageAIError) {
+          if (error.reason === 'generation_timeout') {
+            logQwenGenerationFailure({
+              reason: error.reason,
+              providerErrorCode: 'POLL_TIMEOUT',
+              providerErrorMessage: error.message,
+              ...requestMetadata,
+            })
+          }
+          throw error
+        }
         if ((error as { name?: string }).name === 'TimeoutError') {
           logQwenGenerationFailure({
             reason: 'generation_timeout',
             providerErrorCode: 'REQUEST_TIMEOUT',
             providerErrorMessage: (error as { message?: string }).message,
+            ...requestMetadata,
           })
           throw new ImageAIError('generation_timeout', 'Qwen image generation timed out.')
         }

@@ -8,8 +8,13 @@ function scoped(
   images: AssetImageDto[],
   assetType: AssetImageDto['assetType'],
   assetId: string,
+  projectId?: string,
 ) {
-  return images.filter(image => image.assetType === assetType && image.assetId === assetId)
+  return images.filter(image => (
+    image.assetType === assetType
+    && image.assetId === assetId
+    && (!projectId || image.projectId === projectId)
+  ))
 }
 
 export function selectCharacterConceptReferences(
@@ -29,14 +34,15 @@ export function selectCostumeConceptReferences(input: {
   costumeId: string
   characterImages: AssetImageDto[]
   characterId: string
+  projectId: string
   limit?: number
 }) {
-  const costume = scoped(input.costumeImages, 'costume', input.costumeId)
-  const character = scoped(input.characterImages, 'character', input.characterId)
+  const costume = scoped(input.costumeImages, 'costume', input.costumeId, input.projectId)
+  const character = scoped(input.characterImages, 'character', input.characterId, input.projectId)
   return [
     ...character.filter(image => image.imageRole === 'Master Reference'),
-    ...costume.filter(image => image.imageRole === 'Inspiration').sort(byPosition),
     ...costume.filter(image => image.imageRole === 'Master Reference'),
+    ...costume.filter(image => image.imageRole === 'Inspiration').sort(byPosition),
   ].slice(0, input.limit ?? 5)
 }
 

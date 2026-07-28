@@ -213,9 +213,10 @@ interface CostumeFormSheetProps {
   images?: AssetImageDto[]
   storageStatus?: AssetStorageStatusDto
   imageAIStatus?: ImageAIStatusDto
+  linkedCharacterHasMaster?: boolean
 }
 
-export function CostumeFormSheet({ projectId, characters, costume, images = [], storageStatus, imageAIStatus }: CostumeFormSheetProps) {
+export function CostumeFormSheet({ projectId, characters, costume, images = [], storageStatus, imageAIStatus, linkedCharacterHasMaster }: CostumeFormSheetProps) {
   const action = costume
     ? updateCostumeAction.bind(null, projectId, costume.id)
     : createCostumeAction.bind(null, projectId)
@@ -287,7 +288,7 @@ export function CostumeFormSheet({ projectId, characters, costume, images = [], 
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
         {costume
-          ? <AssetImageManager projectId={projectId} assetType="costume" assetId={costume.id} images={images} storageStatus={storageStatus} imageAIStatus={imageAIStatus} />
+          ? <AssetImageManager projectId={projectId} assetType="costume" assetId={costume.id} images={images} storageStatus={storageStatus} imageAIStatus={imageAIStatus} linkedCharacterHasMaster={linkedCharacterHasMaster} />
           : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>

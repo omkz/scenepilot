@@ -6,6 +6,7 @@ const baseConfig = {
   provider: 'qwen' as const,
   model: 'qwen-image-2.0-pro',
   candidateCount: 4,
+  requestTimeoutMs: 300_000,
   apiKey: 'test-key',
   baseUrl: 'https://dashscope.example.com/api/v1',
 }
