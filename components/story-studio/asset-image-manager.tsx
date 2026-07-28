@@ -33,9 +33,9 @@ import { Input } from '@/components/ui/input'
 
 const copy = {
   character: {
-    guidance: 'Upload visual inspiration for this character. Use the Master Portrait to lock the character’s face and identity across future costumes and storyboard shots.',
-    master: 'Character Master Portrait',
-    recommendation: 'Portrait or chest-up, clear face, neutral expression, simple background, and minimal dramatic lighting.',
+    guidance: 'Upload visual inspiration for this character. Use the Character Master Reference to lock the character’s face, posture, cultural identity, social presence, and foundational appearance across costumes and storyboard shots.',
+    master: 'Character Master Reference',
+    recommendation: 'Cinematic three-quarter character concept framed from the thighs or knees upward, with a clear face, visible posture, identity-defining accessories, and restrained foundational clothing.',
   },
   costume: {
     guidance: 'Upload clothing or armor inspiration. The Master Costume Reference should show the selected character wearing this costume from head to toe.',
@@ -275,7 +275,7 @@ export function AssetImageManager({
     <div className="rounded-xl border bg-muted/10 p-3">
       <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Master Reference</div>
       {master ? <div className={cn(
-        'grid items-start gap-5 md:grid-cols-[minmax(260px,320px)_1fr]',
+        'grid items-start gap-5 md:grid-cols-[minmax(280px,360px)_1fr]',
         assetType === 'location' && 'md:grid-cols-[minmax(360px,520px)_1fr]',
       )}>
         <ImagePreview

@@ -10,21 +10,25 @@ const securityInstruction = [
 
 export function buildCharacterConceptPrompt(character: CharacterDto) {
   return [
-    'Create an original reusable character identity concept.',
+    'Create an original reusable cinematic character identity concept.',
     `Name: ${character.name}.`,
     `Narrative role: ${character.narrativeRole}.`,
+    `Age or apparent age: ${character.age ?? 'Not specified'}.`,
+    `Gender presentation: ${clean(character.genderPresentation)}.`,
     `Personality: ${clean(character.personality)}.`,
     `Motivation: ${clean(character.motivation)}.`,
-    `Visual direction: ${clean(character.visualDirection)}.`,
+    `Character description: ${clean(character.visualDirection)}.`,
     `Appearance summary: ${clean(character.appearance)}.`,
     `Distinguishing features: ${clean(character.distinguishingFeatures)}.`,
-    'Create a cinematic three-quarter character concept framed from the knees or thighs upward.',
-    'Keep the face clearly visible and detailed while also showing posture, body silhouette, social status, cultural identity, signature accessories, and restrained foundational clothing.',
-    'The image should feel like professional film character concept art, not a profile avatar, passport photo, isolated headshot, or close-up portrait.',
-    'Include only identity-defining visual markers supported by the Character data.',
+    'Use a three-quarter character composition framed from the knees or thighs upward.',
+    'Keep the face clearly visible and detailed while also showing posture, body silhouette, social status, cultural identity, restrained foundational clothing, and relevant signature accessories.',
+    'The result should feel like professional film character concept art, not a profile avatar, passport photo, isolated headshot, or close-up portrait.',
+    'Include identity-defining visual markers explicitly supported by the Character data.',
+    'Do not invent royal, military, religious, cultural, or supernatural symbols that are not supported by the Character description.',
+    'Keep elaborate ceremonial clothing, complete battle armor, disguises, and scene-specific wardrobe for separate Costume references.',
     'Do not crop the head, hands, or important identity accessories.',
     'Use a controlled neutral or lightly atmospheric background.',
-    'The identity must remain reusable across future costumes and storyboard shots.',
+    'The identity must remain reusable across future Costume references and storyboard shots.',
     securityInstruction,
   ].join('\n')
 }
@@ -65,4 +69,4 @@ export function buildLocationConceptPrompt(location: LocationDto) {
   ].join('\n')
 }
 
-export const ASSET_CONCEPT_PROMPT_VERSION = 'asset-concept-v2'
+export const ASSET_CONCEPT_PROMPT_VERSION = 'asset-concept-v3'

@@ -25,7 +25,7 @@ function imageSize(assetType: AssetConceptType, modern: boolean) {
     return '2368*1728'
   }
   if (assetType === 'character' || assetType === 'costume') return '1104*1472'
-  return '1472*1104'
+  return '1664*928'
 }
 
 async function jsonResponse(response: Response) {

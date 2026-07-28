@@ -117,7 +117,7 @@ export function CharacterFormSheet({ projectId, character, images = [], storageS
       <SheetContent className="!w-full !max-w-none overflow-y-auto sm:!w-[94vw] sm:!max-w-[72rem]">
         <SheetHeader className="border-b border-border">
           <SheetTitle>{editing ? `Edit ${character?.name}` : 'Create Character'}</SheetTitle>
-          <SheetDescription>Define who this character is and the visual direction for their reusable identity.</SheetDescription>
+          <SheetDescription>Define the character&apos;s story role and foundational visual identity.</SheetDescription>
         </SheetHeader>
         <form action={formAction} className="space-y-5 px-4 pb-6">
           <FormMessage state={state} />
@@ -140,35 +140,58 @@ export function CharacterFormSheet({ projectId, character, images = [], storageS
               <FieldError value={state.errors?.age} />
             </label>
             <label className="col-span-2">
-              <span className="text-xs font-medium">Gender presentation</span>
-              <Input name="genderPresentation" defaultValue={character?.genderPresentation || ''} maxLength={100} className="mt-1.5" />
-              <FieldError value={state.errors?.genderPresentation} />
+              <span className="text-xs font-medium">Character Description</span>
+              <Textarea
+                name="visualDirection"
+                defaultValue={character?.visualDirection || ''}
+                maxLength={2000}
+                placeholder="A Javanese prince in his early thirties, lean build, shoulder-length black hair, calm authority, restrained royal headpiece, court clothing, and a visible keris hilt."
+                className="mt-1.5 min-h-28"
+              />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                Describe the character&apos;s appearance, presence, social identity, cultural details, and foundational clothing.
+              </p>
+              <FieldError value={state.errors?.visualDirection} />
             </label>
-            {[
-              ['personality', 'Personality', 1000, character?.personality],
-              ['motivation', 'Motivation', 1000, character?.motivation],
-              ['visualDirection', 'Visual Direction', 2000, character?.visualDirection],
-            ].map(([name, label, maximum, value]) => (
-              <label key={String(name)} className="col-span-2">
-                <span className="text-xs font-medium">{label}</span>
-                <Textarea name={String(name)} defaultValue={String(value || '')} maxLength={Number(maximum)} className="mt-1.5 min-h-20" />
-                <FieldError value={state.errors?.[String(name)]} />
-              </label>
-            ))}
           </div>
 
           <details className="rounded-xl border bg-muted/10 p-3">
-            <summary className="cursor-pointer text-xs font-semibold">Advanced Visual Metadata</summary>
-            <p className="mt-2 text-[11px] text-muted-foreground">Optional metadata that can be refined after selecting a Master Portrait.</p>
+            <summary className="cursor-pointer text-xs font-semibold">More Character Details</summary>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Optional details for story planning and more precise visual consistency.
+            </p>
             <div className="mt-3 space-y-3">
+              <label className="block">
+                <span className="text-xs font-medium">Gender Presentation</span>
+                <Input name="genderPresentation" defaultValue={character?.genderPresentation || ''} maxLength={100} className="mt-1.5" />
+                <FieldError value={state.errors?.genderPresentation} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium">Personality</span>
+                <Textarea name="personality" defaultValue={character?.personality || ''} maxLength={1000} className="mt-1.5 min-h-20" />
+                <p className="mt-1.5 text-[11px] text-muted-foreground">How the character typically thinks, behaves, and reacts.</p>
+                <FieldError value={state.errors?.personality} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium">Motivation</span>
+                <Textarea name="motivation" defaultValue={character?.motivation || ''} maxLength={1000} className="mt-1.5 min-h-20" />
+                <p className="mt-1.5 text-[11px] text-muted-foreground">What the character wants and what drives their decisions.</p>
+                <FieldError value={state.errors?.motivation} />
+              </label>
               <label className="block">
                 <span className="text-xs font-medium">Appearance Summary</span>
                 <Textarea name="appearance" defaultValue={character?.appearance || ''} maxLength={2000} className="mt-1.5 min-h-20" />
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  Physical facts such as body type, face, hair, skin tone, age, and permanent physical traits.
+                </p>
                 <FieldError value={state.errors?.appearance} />
               </label>
               <label className="block">
                 <span className="text-xs font-medium">Distinguishing Features</span>
                 <Textarea name="distinguishingFeatures" defaultValue={character?.distinguishingFeatures || ''} maxLength={1000} className="mt-1.5 min-h-20" />
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  Memorable identity markers such as scars, tattoos, jewelry, a headpiece, or a signature accessory.
+                </p>
                 <FieldError value={state.errors?.distinguishingFeatures} />
               </label>
             </div>
