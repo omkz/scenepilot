@@ -22,6 +22,13 @@ import type {
 } from '@/lib/assets/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 
 const copy = {
@@ -68,6 +75,51 @@ const defaultImageAIStatus: ImageAIStatusDto = {
 }
 
 const wait = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds))
+
+function ImagePreview({
+  src,
+  alt,
+  width,
+  height,
+  imageClassName,
+}: {
+  src: string
+  alt: string
+  width: number
+  height: number
+  imageClassName: string
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={<button type="button" className="block w-full cursor-zoom-in overflow-hidden rounded-lg" />}
+      >
+        <Image
+          src={src}
+          alt={alt}
+          width={width}
+          height={height}
+          unoptimized
+          className={imageClassName}
+        />
+      </DialogTrigger>
+      <DialogContent className="!max-w-[min(94vw,80rem)] bg-black/95 p-3">
+        <DialogTitle className="sr-only">{alt}</DialogTitle>
+        <DialogDescription className="sr-only">
+          Larger preview of the stored visual reference.
+        </DialogDescription>
+        <Image
+          src={src}
+          alt={alt}
+          width={width}
+          height={height}
+          unoptimized
+          className="max-h-[86vh] w-full rounded-lg object-contain"
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export function AssetImageManager({
   projectId,
@@ -222,16 +274,20 @@ export function AssetImageManager({
 
     <div className="rounded-xl border bg-muted/10 p-3">
       <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Master Reference</div>
-      {master ? <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
-        <Image
+      {master ? <div className={cn(
+        'grid items-start gap-5 md:grid-cols-[minmax(260px,320px)_1fr]',
+        assetType === 'location' && 'md:grid-cols-[minmax(360px,520px)_1fr]',
+      )}>
+        <ImagePreview
           src={master.storageUrl}
           alt={details.master}
           width={master.width || 560}
           height={master.height || 560}
-          unoptimized
-          className={cn(
-            'h-36 w-full rounded-lg border bg-black/20',
-            assetType === 'costume' ? 'object-contain' : 'object-cover',
+          imageClassName={cn(
+            'w-full rounded-lg border bg-black/20',
+            assetType === 'location'
+              ? 'aspect-[4/3] max-h-[32rem] object-contain'
+              : 'aspect-[3/4] max-h-[38rem] object-contain',
           )}
         />
         <div>
@@ -324,17 +380,18 @@ export function AssetImageManager({
             : `Generate ${assetType === 'character' ? 'Character' : assetType === 'costume' ? 'Costume' : 'Location'} Concepts`}
         </Button> : <p className="text-[11px] text-amber-400">Image concept generation is not configured.</p>}
       </div>
-      {generatedConcepts.length > 0 ? <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {generatedConcepts.map(image => <div key={image.id} className="rounded-lg border bg-card p-2">
-          <Image
+      {generatedConcepts.length > 0 ? <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        {generatedConcepts.map(image => <div key={image.id} className="rounded-xl border bg-card p-3">
+          <ImagePreview
             src={image.storageUrl}
             alt="Generated asset concept"
-            width={image.width || 448}
-            height={image.height || 448}
-            unoptimized
-            className={cn(
-              'h-32 w-full rounded-md bg-black/20',
-              assetType === 'costume' ? 'object-contain' : 'object-cover',
+            width={image.width || 720}
+            height={image.height || 960}
+            imageClassName={cn(
+              'w-full rounded-lg border bg-black/20',
+              assetType === 'location'
+                ? 'aspect-[4/3] max-h-[34rem] object-contain'
+                : 'aspect-[3/4] max-h-[40rem] object-contain',
             )}
           />
           <div className="mt-2 flex flex-wrap gap-1">

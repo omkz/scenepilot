@@ -21,13 +21,11 @@ const negativePrompt = 'Low quality, distorted anatomy, malformed hands, duplica
 
 function imageSize(assetType: AssetConceptType, modern: boolean) {
   if (modern) {
-    if (assetType === 'costume') return '1728*2368'
-    if (assetType === 'location') return '2368*1728'
-    return '2048*2048'
+    if (assetType === 'character' || assetType === 'costume') return '1728*2368'
+    return '2368*1728'
   }
-  if (assetType === 'costume') return '1104*1472'
-  if (assetType === 'location') return '1664*928'
-  return '1328*1328'
+  if (assetType === 'character' || assetType === 'costume') return '1104*1472'
+  return '1472*1104'
 }
 
 async function jsonResponse(response: Response) {

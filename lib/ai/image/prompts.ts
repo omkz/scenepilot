@@ -18,8 +18,12 @@ export function buildCharacterConceptPrompt(character: CharacterDto) {
     `Visual direction: ${clean(character.visualDirection)}.`,
     `Appearance summary: ${clean(character.appearance)}.`,
     `Distinguishing features: ${clean(character.distinguishingFeatures)}.`,
-    'Use a portrait or chest-up composition focused on face, hair, skin tone, and core identity.',
-    'Use a neutral or restrained expression, clean simple background, and minimal costume emphasis.',
+    'Create a cinematic three-quarter character concept framed from the knees or thighs upward.',
+    'Keep the face clearly visible and detailed while also showing posture, body silhouette, social status, cultural identity, signature accessories, and restrained foundational clothing.',
+    'The image should feel like professional film character concept art, not a profile avatar, passport photo, isolated headshot, or close-up portrait.',
+    'Include only identity-defining visual markers supported by the Character data.',
+    'Do not crop the head, hands, or important identity accessories.',
+    'Use a controlled neutral or lightly atmospheric background.',
     'The identity must remain reusable across future costumes and storyboard shots.',
     securityInstruction,
   ].join('\n')
@@ -61,4 +65,4 @@ export function buildLocationConceptPrompt(location: LocationDto) {
   ].join('\n')
 }
 
-export const ASSET_CONCEPT_PROMPT_VERSION = 'asset-concept-v1'
+export const ASSET_CONCEPT_PROMPT_VERSION = 'asset-concept-v2'
