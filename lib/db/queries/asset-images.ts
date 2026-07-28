@@ -189,6 +189,67 @@ export async function createUploadedAssetImage(input: {
   })
 }
 
+export async function createGeneratedAssetImages(input: {
+  projectId: string
+  assetType: AssetType
+  assetId: string
+  provider: string
+  model: string
+  promptVersion: string
+  images: Array<{
+    storageProvider: string
+    storageKey: string
+    storageUrl: string
+    mimeType: string
+    sizeBytes: number
+    width: number | null
+    height: number | null
+  }>
+}): Promise<AssetImageMutationResult<AssetImageDto[]>> {
+  if (!valid(input.projectId, input.assetId) || !input.images.length) {
+    return { ok: false, reason: 'not_found' }
+  }
+  return getDatabase().transaction(async transaction => {
+    const scope = await lockAsset(transaction, input.projectId, input.assetType, input.assetId)
+    if (scope.crossProject) return { ok: false, reason: 'cross_project_reference' } as const
+    if (!scope.found) return { ok: false, reason: 'not_found' } as const
+    if (scope.archived) return { ok: false, reason: 'asset_archived' } as const
+    const [positionResult] = await transaction.select({ value: max(assetImages.position) })
+      .from(assetImages)
+      .where(and(
+        eq(assetImages.projectId, input.projectId),
+        eq(ownerColumn[input.assetType], input.assetId),
+      ))
+    const owner = {
+      characterId: input.assetType === 'character' ? input.assetId : null,
+      costumeId: input.assetType === 'costume' ? input.assetId : null,
+      locationId: input.assetType === 'location' ? input.assetId : null,
+    }
+    const firstPosition = Number(positionResult.value || 0) + 1
+    const rows = await transaction.insert(assetImages).values(input.images.map((image, index) => ({
+      projectId: input.projectId,
+      ...owner,
+      imageRole: 'Generated Concept',
+      sourceType: 'AI Generated',
+      storageProvider: image.storageProvider,
+      storageKey: image.storageKey,
+      storageUrl: image.storageUrl,
+      originalFilename: null,
+      mimeType: image.mimeType,
+      sizeBytes: image.sizeBytes,
+      width: image.width,
+      height: image.height,
+      sourceUrl: null,
+      sourceNote: null,
+      generationProvider: input.provider,
+      generationModel: input.model,
+      generationPromptVersion: input.promptVersion,
+      position: firstPosition + index,
+    }))).returning()
+    return { ok: true, value: rows.map(serialize) } as const
+  })
+}
+
 export async function setAssetImageAsMaster(
   projectId: string,
   assetType: AssetType,
@@ -206,8 +267,13 @@ export async function setAssetImageAsMaster(
       eq(ownerColumn[assetType], assetId),
     )).for('update')
     const target = rows.find(row => row.id === imageId)
-    if (!target || target.imageRole !== 'Inspiration') {
+    if (!target || !['Inspiration', 'Generated Concept'].includes(target.imageRole)) {
       return { ok: false, reason: 'not_found' } as const
+    }
+    const currentMaster = rows.find(row => row.imageRole === 'Master Reference')
+    const inspirationCount = rows.filter(row => row.imageRole === 'Inspiration').length
+    if (currentMaster && inspirationCount >= 5) {
+      return { ok: false, reason: 'image_limit_reached' } as const
     }
     const now = new Date()
     const supportingPosition = Math.max(

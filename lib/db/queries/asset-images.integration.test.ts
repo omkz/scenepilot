@@ -14,6 +14,7 @@ import {
   projects,
 } from '@/lib/db/schema'
 import {
+  createGeneratedAssetImages,
   createUploadedAssetImage,
   deleteAssetImage,
   getAssetImage,
@@ -317,6 +318,41 @@ suite.sequential('asset image scoping and master references', () => {
     expect(updated.find(image => image.id === images[0].id)?.imageRole).toBe('Inspiration')
     expect(updated.find(image => image.id === images[1].id)?.imageRole).toBe('Master Reference')
     expect(updated.filter(image => image.imageRole === 'Inspiration')).toHaveLength(4)
+  })
+
+  it('promotes a Generated Concept without duplicating its file', async () => {
+    const generated = await createGeneratedAssetImages({
+      projectId: projectA,
+      assetType: 'character',
+      assetId: characterA2,
+      provider: 'qwen',
+      model: 'qwen-image-2.0-pro',
+      promptVersion: 'asset-concept-v1',
+      images: [{
+        storageProvider: 'test',
+        storageKey: `${projectA}/character/${characterA2}/generated-${randomUUID()}.png`,
+        storageUrl: 'https://example.test/generated.png',
+        mimeType: 'image/png',
+        sizeBytes: 100,
+        width: 100,
+        height: 100,
+      }],
+    })
+    expect(generated.ok).toBe(true)
+    if (!generated.ok) return
+    const concept = generated.value[0]
+    expect(concept.imageRole).toBe('Generated Concept')
+    expect((await setAssetImageAsMaster(
+      projectA,
+      'character',
+      characterA2,
+      concept.id,
+    )).ok).toBe(true)
+    const images = await getDatabase().select().from(assetImages)
+      .where(eq(assetImages.characterId, characterA2))
+    expect(images).toHaveLength(1)
+    expect(images[0].imageRole).toBe('Master Reference')
+    expect(images[0].generationProvider).toBe('qwen')
   })
 
   it('rolls back a failed master promotion', async () => {

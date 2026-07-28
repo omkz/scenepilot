@@ -8,6 +8,7 @@ import { listAssetImages } from '@/lib/db/queries/asset-images'
 import { calculateAssetReadiness } from '@/lib/assets/readiness'
 import type { StoryStudioTab } from '@/lib/assets/types'
 import { getAssetStorageStatus } from '@/lib/storage/asset-storage'
+import { getImageAIStatus } from '@/lib/ai/image/image-provider'
 
 const STORY_STUDIO_TABS: StoryStudioTab[] = ['characters', 'costumes', 'locations', 'story-bible']
 
@@ -57,6 +58,7 @@ export default async function StoryStudioPage({ params, searchParams }: StoryStu
       locations={locations}
       assetImages={assetImages}
       storageStatus={getAssetStorageStatus()}
+      imageAIStatus={getImageAIStatus()}
       readiness={calculateAssetReadiness(activeCharacters, activeCostumes, activeLocations)}
       saved={query.saved === '1'}
       error={query.error}

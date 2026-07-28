@@ -57,6 +57,31 @@ BLOB_READ_WRITE_TOKEN=
 
 Vercel uploads use scoped client-upload tokens and a verification callback so images up to 10 MB do not pass through the Vercel Function request body. Both drivers generate safe storage paths, validate project and asset scope, restrict uploads to JPEG, PNG, and WebP, verify file signatures, and persist only object metadata in PostgreSQL. Missing images do not block text AI workflows.
 
+### Image concept generation
+
+ScenePilot can turn visual direction and Inspiration images into persistent Character, Costume, or Location concept candidates:
+
+```text
+Upload Inspiration Images
+→ Generate Character / Costume / Location Concepts
+→ review generated candidates
+→ promote one to Master Reference
+```
+
+Configure the server-side Qwen image adapter separately from text AI:
+
+```env
+IMAGE_AI_PROVIDER=qwen
+IMAGE_AI_MODEL=qwen-image-2.0-pro
+IMAGE_AI_CANDIDATE_COUNT=4
+DASHSCOPE_API_KEY=
+DASHSCOPE_BASE_URL=https://dashscope-intl.aliyuncs.com/api/v1
+```
+
+`qwen-image-2.0-pro` is the default because the current Model Studio API supports multiple output candidates and reference images. Set the regional base URL that matches the API key and workspace. Provider result URLs are downloaded, validated, and copied into ScenePilot asset storage; they are never used as permanent hotlinks.
+
+Generated candidates are stored as `Generated Concept` images and never become a Master Reference automatically. They do not count against the five Inspiration-image limit and do not block Episode Outline, Scene Plan, Scene Script, or Shot List workflows.
+
 ## AI episode outlines
 
 AI calls run only from server-side task services. Qwen is the first provider adapter, while provider and model selection remain backend controlled:

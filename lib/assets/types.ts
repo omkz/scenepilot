@@ -76,6 +76,13 @@ export interface AssetStorageStatusDto {
   uploadMode: 'server' | 'client'
 }
 
+export interface ImageAIStatusDto {
+  configured: boolean
+  provider: 'qwen'
+  model: string
+  candidateCount: number
+}
+
 interface AssetDto {
   id: string
   projectId: string
@@ -144,6 +151,9 @@ export interface AssetImageDto {
   height: number | null
   sourceUrl: string | null
   sourceNote: string | null
+  generationProvider: string | null
+  generationModel: string | null
+  generationPromptVersion: string | null
   position: number
   createdAt: string
   updatedAt: string

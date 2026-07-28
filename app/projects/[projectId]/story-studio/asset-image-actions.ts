@@ -4,6 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { ASSET_TYPES, type AssetType } from '@/lib/assets/types'
 import {
+  IMAGE_AI_USER_MESSAGES,
+  normalizeImageAIError,
+  type ImageAIErrorReason,
+} from '@/lib/ai/image/errors'
+import { generateAssetConcepts } from '@/lib/ai/image/image-service'
+import {
   deleteAssetImage,
   getAssetImageScopeState,
   listAssetImages,
@@ -37,6 +43,10 @@ const metadataSchema = z.object({
 export type AssetImageActionResult =
   | { ok: true }
   | { ok: false; reason: AssetImageMutationReason }
+
+export type GenerateAssetConceptsActionResult =
+  | { ok: true; count: number }
+  | { ok: false; reason: ImageAIErrorReason; message: string }
 
 function refresh(projectId: string) {
   revalidatePath(`/projects/${projectId}/story-studio`)
@@ -176,4 +186,31 @@ export async function reorderAssetImagesAction(
   if (!reordered) return { ok: false, reason: 'not_found' }
   refresh(projectId)
   return { ok: true }
+}
+
+export async function generateAssetConceptsAction(
+  projectId: string,
+  assetType: AssetType,
+  assetId: string,
+): Promise<GenerateAssetConceptsActionResult> {
+  const scope = scopeSchema.safeParse({ projectId, assetType, assetId })
+  if (!scope.success) {
+    return {
+      ok: false,
+      reason: 'asset_not_found',
+      message: IMAGE_AI_USER_MESSAGES.asset_not_found,
+    }
+  }
+  try {
+    const images = await generateAssetConcepts({ projectId, assetType, assetId })
+    refresh(projectId)
+    return { ok: true, count: images.length }
+  } catch (error) {
+    const normalized = normalizeImageAIError(error)
+    return {
+      ok: false,
+      reason: normalized.reason,
+      message: IMAGE_AI_USER_MESSAGES[normalized.reason],
+    }
+  }
 }

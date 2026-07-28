@@ -23,6 +23,7 @@ import {
   type AssetStorageStatusDto,
   type CharacterDto,
   type CostumeDto,
+  type ImageAIStatusDto,
   type LocationDto,
 } from '@/lib/assets/types'
 import {
@@ -86,9 +87,10 @@ interface CharacterFormSheetProps {
   character?: CharacterDto
   images?: AssetImageDto[]
   storageStatus?: AssetStorageStatusDto
+  imageAIStatus?: ImageAIStatusDto
 }
 
-export function CharacterFormSheet({ projectId, character, images = [], storageStatus }: CharacterFormSheetProps) {
+export function CharacterFormSheet({ projectId, character, images = [], storageStatus, imageAIStatus }: CharacterFormSheetProps) {
   const action = character
     ? updateCharacterAction.bind(null, projectId, character.id)
     : createCharacterAction.bind(null, projectId)
@@ -112,7 +114,7 @@ export function CharacterFormSheet({ projectId, character, images = [], storageS
         {editing ? <Pencil size={11} className="mr-1" /> : <Plus size={12} className="mr-1.5" />}
         {editing ? 'Edit' : 'Add Character'}
       </SheetTrigger>
-      <SheetContent className="overflow-y-auto sm:max-w-xl">
+      <SheetContent className="!w-full !max-w-none overflow-y-auto sm:!w-[94vw] sm:!max-w-[72rem]">
         <SheetHeader className="border-b border-border">
           <SheetTitle>{editing ? `Edit ${character?.name}` : 'Create Character'}</SheetTitle>
           <SheetDescription>Define who this character is and the visual direction for their reusable identity.</SheetDescription>
@@ -174,7 +176,7 @@ export function CharacterFormSheet({ projectId, character, images = [], storageS
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
         {character
-          ? <AssetImageManager projectId={projectId} assetType="character" assetId={character.id} images={images} storageStatus={storageStatus} />
+          ? <AssetImageManager projectId={projectId} assetType="character" assetId={character.id} images={images} storageStatus={storageStatus} imageAIStatus={imageAIStatus} />
           : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>
@@ -187,9 +189,10 @@ interface CostumeFormSheetProps {
   costume?: CostumeDto
   images?: AssetImageDto[]
   storageStatus?: AssetStorageStatusDto
+  imageAIStatus?: ImageAIStatusDto
 }
 
-export function CostumeFormSheet({ projectId, characters, costume, images = [], storageStatus }: CostumeFormSheetProps) {
+export function CostumeFormSheet({ projectId, characters, costume, images = [], storageStatus, imageAIStatus }: CostumeFormSheetProps) {
   const action = costume
     ? updateCostumeAction.bind(null, projectId, costume.id)
     : createCostumeAction.bind(null, projectId)
@@ -213,7 +216,7 @@ export function CostumeFormSheet({ projectId, characters, costume, images = [], 
         {editing ? <Pencil size={11} className="mr-1" /> : <Plus size={12} className="mr-1.5" />}
         {editing ? 'Edit' : 'Add Costume'}
       </SheetTrigger>
-      <SheetContent className="overflow-y-auto sm:max-w-xl">
+      <SheetContent className="!w-full !max-w-none overflow-y-auto sm:!w-[94vw] sm:!max-w-[72rem]">
         <SheetHeader className="border-b border-border">
           <SheetTitle>{editing ? `Edit ${costume?.name}` : 'Create Costume'}</SheetTitle>
           <SheetDescription>Attach a stable wardrobe reference to a character in this project.</SheetDescription>
@@ -261,7 +264,7 @@ export function CostumeFormSheet({ projectId, characters, costume, images = [], 
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
         {costume
-          ? <AssetImageManager projectId={projectId} assetType="costume" assetId={costume.id} images={images} storageStatus={storageStatus} />
+          ? <AssetImageManager projectId={projectId} assetType="costume" assetId={costume.id} images={images} storageStatus={storageStatus} imageAIStatus={imageAIStatus} />
           : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>
@@ -273,9 +276,10 @@ interface LocationFormSheetProps {
   location?: LocationDto
   images?: AssetImageDto[]
   storageStatus?: AssetStorageStatusDto
+  imageAIStatus?: ImageAIStatusDto
 }
 
-export function LocationFormSheet({ projectId, location, images = [], storageStatus }: LocationFormSheetProps) {
+export function LocationFormSheet({ projectId, location, images = [], storageStatus, imageAIStatus }: LocationFormSheetProps) {
   const action = location
     ? updateLocationAction.bind(null, projectId, location.id)
     : createLocationAction.bind(null, projectId)
@@ -299,7 +303,7 @@ export function LocationFormSheet({ projectId, location, images = [], storageSta
         {editing ? <Pencil size={11} className="mr-1" /> : <Plus size={12} className="mr-1.5" />}
         {editing ? 'Edit' : 'Add Location'}
       </SheetTrigger>
-      <SheetContent className="overflow-y-auto sm:max-w-xl">
+      <SheetContent className="!w-full !max-w-none overflow-y-auto sm:!w-[94vw] sm:!max-w-[72rem]">
         <SheetHeader className="border-b border-border">
           <SheetTitle>{editing ? `Edit ${location?.name}` : 'Create Location'}</SheetTitle>
           <SheetDescription>Define what this recurring environment is and how it should look.</SheetDescription>
@@ -354,7 +358,7 @@ export function LocationFormSheet({ projectId, location, images = [], storageSta
           <div className="flex justify-end"><SubmitButton editing={editing} /></div>
         </form>
         {location
-          ? <AssetImageManager projectId={projectId} assetType="location" assetId={location.id} images={images} storageStatus={storageStatus} />
+          ? <AssetImageManager projectId={projectId} assetType="location" assetId={location.id} images={images} storageStatus={storageStatus} imageAIStatus={imageAIStatus} />
           : <PendingVisualReferences />}
       </SheetContent>
     </Sheet>

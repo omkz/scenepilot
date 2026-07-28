@@ -35,10 +35,13 @@ export class AssetStorageConfigurationError extends Error {
 
 export function resolveAssetStorageDriver(
   environment = process.env.NODE_ENV,
-  configuredDriver = process.env.ASSET_STORAGE_DRIVER,
+  configuredDriver?: string,
 ): AssetStorageDriver {
+  const selectedDriver = arguments.length >= 2
+    ? configuredDriver
+    : process.env.ASSET_STORAGE_DRIVER
   const fallback = environment === 'production' ? 'vercel-blob' : 'local'
-  const driver = configuredDriver || fallback
+  const driver = selectedDriver || fallback
   if (driver !== 'local' && driver !== 'vercel-blob') {
     throw new AssetStorageConfigurationError(`Unsupported asset storage driver: ${driver}`)
   }

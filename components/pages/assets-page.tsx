@@ -31,6 +31,7 @@ import {
   type AssetStorageStatusDto,
   type CharacterDto,
   type CostumeDto,
+  type ImageAIStatusDto,
   type LocationDto,
   type StoryStudioTab,
 } from '@/lib/assets/types'
@@ -59,6 +60,7 @@ interface AssetsPageProps {
   error?: string
   assetImages: AssetImageDto[]
   storageStatus: AssetStorageStatusDto
+  imageAIStatus: ImageAIStatusDto
 }
 
 type AssetType = 'character' | 'costume' | 'location'
@@ -266,6 +268,7 @@ export function AssetsPage({
   error,
   assetImages,
   storageStatus,
+  imageAIStatus,
 }: AssetsPageProps) {
   const deleteError = deletionErrorMessage(error)
   const [search, setSearch] = useState('')
@@ -419,6 +422,7 @@ export function AssetsPage({
                       <div className="mt-1 text-[11px] text-muted-foreground">{character.costumeCount} costume{character.costumeCount === 1 ? '' : 's'}</div>
                       <div className="mt-2 text-[10px] text-muted-foreground">Story readiness: {character.approvalStatus}</div>
                       <div className="text-[10px] text-muted-foreground">Visual readiness: {imagesFor('character', character.id).some(image => image.imageRole === 'Master Reference') ? 'Master reference ready' : 'Missing master reference'}</div>
+                      {imagesFor('character', character.id).filter(image => image.imageRole === 'Generated Concept').length > 0 && <div className="text-[10px] text-violet-300">{imagesFor('character', character.id).filter(image => image.imageRole === 'Generated Concept').length} generated concepts</div>}
                       <div className="mt-2 text-[10px] text-muted-foreground">Updated {new Date(character.updatedAt).toLocaleDateString()}</div>
                     </div>
                   </div>
@@ -426,7 +430,7 @@ export function AssetsPage({
                     projectId={projectId}
                     type="character"
                     asset={character}
-                    edit={!archived ? <CharacterFormSheet projectId={projectId} character={character} images={imagesFor('character', character.id)} storageStatus={storageStatus} /> : undefined}
+                    edit={!archived ? <CharacterFormSheet projectId={projectId} character={character} images={imagesFor('character', character.id)} storageStatus={storageStatus} imageAIStatus={imageAIStatus} /> : undefined}
                   />
                 </article>
               ))}
@@ -470,11 +474,12 @@ export function AssetsPage({
                   </div>
                   <div className="mt-2 text-[10px] text-muted-foreground">Story readiness: {costume.approvalStatus}</div>
                   <div className="text-[10px] text-muted-foreground">Visual readiness: {imagesFor('costume', costume.id).some(image => image.imageRole === 'Master Reference') ? 'Master reference ready' : 'Missing master reference'}</div>
+                  {imagesFor('costume', costume.id).filter(image => image.imageRole === 'Generated Concept').length > 0 && <div className="text-[10px] text-violet-300">{imagesFor('costume', costume.id).filter(image => image.imageRole === 'Generated Concept').length} generated concepts</div>}
                   <AssetWorkflowActions
                     projectId={projectId}
                     type="costume"
                     asset={costume}
-                    edit={!archived ? <CostumeFormSheet projectId={projectId} characters={activeCharacters} costume={costume} images={imagesFor('costume', costume.id)} storageStatus={storageStatus} /> : undefined}
+                    edit={!archived ? <CostumeFormSheet projectId={projectId} characters={activeCharacters} costume={costume} images={imagesFor('costume', costume.id)} storageStatus={storageStatus} imageAIStatus={imageAIStatus} /> : undefined}
                   />
                 </article>
               ))}
@@ -509,11 +514,12 @@ export function AssetsPage({
                   </div>
                   <div className="mt-2 text-[10px] text-muted-foreground">Story readiness: {location.approvalStatus}</div>
                   <div className="text-[10px] text-muted-foreground">Visual readiness: {imagesFor('location', location.id).some(image => image.imageRole === 'Master Reference') ? 'Master reference ready' : 'Missing master reference'}</div>
+                  {imagesFor('location', location.id).filter(image => image.imageRole === 'Generated Concept').length > 0 && <div className="text-[10px] text-violet-300">{imagesFor('location', location.id).filter(image => image.imageRole === 'Generated Concept').length} generated concepts</div>}
                   <AssetWorkflowActions
                     projectId={projectId}
                     type="location"
                     asset={location}
-                    edit={!archived ? <LocationFormSheet projectId={projectId} location={location} images={imagesFor('location', location.id)} storageStatus={storageStatus} /> : undefined}
+                    edit={!archived ? <LocationFormSheet projectId={projectId} location={location} images={imagesFor('location', location.id)} storageStatus={storageStatus} imageAIStatus={imageAIStatus} /> : undefined}
                   />
                 </article>
               ))}
