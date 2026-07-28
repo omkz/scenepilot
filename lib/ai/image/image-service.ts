@@ -75,22 +75,27 @@ export async function downloadGeneratedConcept(
   image: GeneratedConceptImage,
   fetcher: typeof fetch = fetch,
 ) {
+  const maximumGeneratedImageBytes = 20 * 1024 * 1024
   if (image.bytes) return image.bytes
   if (!image.url || !isAllowedProviderUrl(image.url)) {
     throw new ImageAIError('generation_failed', 'The provider returned an unsafe image URL.')
   }
   const response = await fetcher(image.url, {
     redirect: 'error',
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(60_000),
   })
   if (!response.ok) {
     throw new ImageAIError('generation_failed', 'The provider image could not be downloaded.')
   }
   const contentLength = Number(response.headers.get('content-length') || 0)
-  if (contentLength > 10 * 1024 * 1024) {
+  if (contentLength > maximumGeneratedImageBytes) {
     throw new ImageAIError('generation_failed', 'The provider image is too large.')
   }
-  return new Uint8Array(await response.arrayBuffer())
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  if (bytes.byteLength > maximumGeneratedImageBytes) {
+    throw new ImageAIError('generation_failed', 'The provider image is too large.')
+  }
+  return bytes
 }
 
 async function defaultLoadContext(input: GenerateAssetConceptsInput) {

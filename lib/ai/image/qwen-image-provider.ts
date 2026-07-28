@@ -19,19 +19,43 @@ interface QwenProviderOptions {
 
 const negativePrompt = 'Low quality, distorted anatomy, malformed hands, duplicate people, inconsistent identity, text, logo, signature, watermark, cropped important details.'
 
-function imageSize(assetType: AssetConceptType, modern: boolean) {
-  if (modern) {
-    if (assetType === 'character' || assetType === 'costume') return '1728*2368'
-    return '2368*1728'
-  }
+function imageSize(assetType: AssetConceptType) {
   if (assetType === 'character' || assetType === 'costume') return '1104*1472'
-  return '1664*928'
+  return '1472*1104'
+}
+
+function safeProviderValue(value: unknown) {
+  return typeof value === 'string' ? value.slice(0, 500) : null
+}
+
+function logQwenGenerationFailure(input: {
+  reason: ImageAIError['reason']
+  providerErrorCode?: unknown
+  providerErrorMessage?: unknown
+  httpStatus?: number | null
+  requestId?: unknown
+}) {
+  console.error('qwen_image_generation_failed', {
+    reason: input.reason,
+    providerErrorCode: safeProviderValue(input.providerErrorCode),
+    providerErrorMessage: safeProviderValue(input.providerErrorMessage),
+    httpStatus: input.httpStatus ?? null,
+    requestId: safeProviderValue(input.requestId),
+  })
 }
 
 async function jsonResponse(response: Response) {
   const data = await response.json().catch(() => null) as Record<string, unknown> | null
   if (!response.ok) {
-    const code = typeof data?.code === 'string' ? data.code : 'PROVIDER_ERROR'
+    const output = data?.output as Record<string, unknown> | undefined
+    const code = data?.code || output?.code || 'PROVIDER_ERROR'
+    logQwenGenerationFailure({
+      reason: 'generation_failed',
+      providerErrorCode: code,
+      providerErrorMessage: data?.message || output?.message,
+      httpStatus: response.status,
+      requestId: data?.request_id || data?.requestId,
+    })
     throw new ImageAIError('generation_failed', `Qwen image request failed (${code}).`)
   }
   return data || {}
@@ -52,12 +76,15 @@ function asyncState(data: Record<string, unknown>) {
     task_id?: string
     task_status?: string
     code?: string
+    message?: string
     results?: Array<{ url?: string }>
   } | undefined
   return {
     taskId: output?.task_id,
     status: output?.task_status,
     code: output?.code,
+    message: output?.message,
+    requestId: data.request_id || data.requestId,
     urls: output?.results?.map(item => item.url).filter((url): url is string => Boolean(url)) || [],
   }
 }
@@ -69,7 +96,7 @@ export function createQwenImageProvider(
   const fetcher = options.fetcher || fetch
   const sleep = options.sleep || (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)))
   const pollIntervalMs = options.pollIntervalMs ?? 5_000
-  const timeoutMs = options.timeoutMs ?? 90_000
+  const timeoutMs = options.timeoutMs ?? 180_000
   const headers = {
     Authorization: `Bearer ${config.apiKey}`,
     'Content-Type': 'application/json',
@@ -95,7 +122,7 @@ export function createQwenImageProvider(
           input: { messages: [{ role: 'user', content }] },
           parameters: {
             n: input.candidateCount,
-            size: imageSize(input.assetType, true),
+            size: imageSize(input.assetType),
             negative_prompt: negativePrompt,
             prompt_extend: true,
             watermark: false,
@@ -121,7 +148,7 @@ export function createQwenImageProvider(
           input: { prompt: input.prompt.slice(0, 800) },
           parameters: {
             n: 1,
-            size: imageSize(input.assetType, false),
+            size: imageSize(input.assetType),
             negative_prompt: negativePrompt,
             prompt_extend: true,
             watermark: false,
@@ -130,8 +157,18 @@ export function createQwenImageProvider(
         signal: AbortSignal.timeout(timeoutMs),
       },
     ))
-    const taskId = asyncState(created).taskId
-    if (!taskId) throw new ImageAIError('generation_failed', 'Qwen did not return a task identifier.')
+    const createdState = asyncState(created)
+    const taskId = createdState.taskId
+    if (!taskId) {
+      logQwenGenerationFailure({
+        reason: 'generation_failed',
+        providerErrorCode: 'MISSING_TASK_ID',
+        providerErrorMessage: 'Qwen did not return a task identifier.',
+        httpStatus: 200,
+        requestId: createdState.requestId,
+      })
+      throw new ImageAIError('generation_failed', 'Qwen did not return a task identifier.')
+    }
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
       await sleep(pollIntervalMs)
@@ -144,9 +181,22 @@ export function createQwenImageProvider(
       )))
       if (state.status === 'SUCCEEDED') return state.urls
       if (['FAILED', 'CANCELED', 'UNKNOWN'].includes(state.status || '')) {
+        logQwenGenerationFailure({
+          reason: 'generation_failed',
+          providerErrorCode: state.code || state.status,
+          providerErrorMessage: state.message,
+          httpStatus: 200,
+          requestId: state.requestId,
+        })
         throw new ImageAIError('generation_failed', `Qwen image task failed (${state.code || state.status}).`)
       }
     }
+    logQwenGenerationFailure({
+      reason: 'generation_timeout',
+      providerErrorCode: 'POLL_TIMEOUT',
+      providerErrorMessage: 'Qwen image generation polling timed out.',
+      requestId: createdState.requestId,
+    })
     throw new ImageAIError('generation_timeout', 'Qwen image generation timed out.')
   }
 
@@ -164,6 +214,11 @@ export function createQwenImageProvider(
               Array.from({ length: input.candidateCount }, () => oneAsynchronous(input)),
             )).flat()
         if (!urls.length) {
+          logQwenGenerationFailure({
+            reason: 'no_images_returned',
+            providerErrorCode: 'EMPTY_IMAGE_RESPONSE',
+            providerErrorMessage: 'Qwen returned no image results.',
+          })
           throw new ImageAIError('no_images_returned', 'Qwen returned no image results.')
         }
         return {
@@ -178,8 +233,18 @@ export function createQwenImageProvider(
       } catch (error) {
         if (error instanceof ImageAIError) throw error
         if ((error as { name?: string }).name === 'TimeoutError') {
+          logQwenGenerationFailure({
+            reason: 'generation_timeout',
+            providerErrorCode: 'REQUEST_TIMEOUT',
+            providerErrorMessage: (error as { message?: string }).message,
+          })
           throw new ImageAIError('generation_timeout', 'Qwen image generation timed out.')
         }
+        logQwenGenerationFailure({
+          reason: 'generation_failed',
+          providerErrorCode: (error as { code?: string }).code || 'REQUEST_FAILED',
+          providerErrorMessage: (error as { message?: string }).message,
+        })
         throw new ImageAIError('generation_failed', 'Qwen image generation failed.')
       }
     },
